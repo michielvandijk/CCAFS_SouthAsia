@@ -1,60 +1,180 @@
-library(data.table)
-library(reshape)
-library(reshape2)
-library(gdxrrw)
-library(lattice)
-library(splitstackshape)
-library(plyr)
-library(gdxrrw)
-library("ggplot2")  
-library(plyr)
+#'========================================================================================================================================
+#' Project:  CCAFS-water
+#' Subject:  Create maps and figures for paper
+#' Author:   Michiel van Dijk
+#' Contact:  michiel.vandijk@wur.nl
+#'========================================================================================================================================
 
-library(Rmisc)
-library(beeswarm)
+### PACKAGES
+BasePackages<- c("tidyverse", "readxl", "stringr", "car", "scales", "RColorBrewer")
+lapply(BasePackages, library, character.only = TRUE)
+SpatialPackages<-c("rgdal", "ggmap", "raster", "rasterVis", "rgeos", "sp", "mapproj", "maptools", "proj4", "gdalUtils", "maps")
+lapply(SpatialPackages, library, character.only = TRUE)
+AdditionalPackages <- c("WDI", "gdxrrw")
+lapply(AdditionalPackages, library, character.only = TRUE)
 
-library(gdxrrw)
-library("ggplot2")  
+### SET WORKING DIRECTORY
+wdPath<-"~/Github/CCAFS_SouthAsia"
+setwd(wdPath)
 
-igdx("C:/GAMS/win64/24.4")
-setwd("H:/")
+auxPath <- "C:\\Users\\vandijkm\\GLOBIOM\\Auxiliary"
+dataPath <- "P:\\globiom\\Projects\\Water" 
 
-datanames <- c("ind1","scen","GCM","SSP","crop", "ind2", "reg", "year")
+### R SETTINGS
+options(scipen=999) # surpress scientific notation
+options("stringsAsFactors"=FALSE) # ensures that characterdata that is loaded (e.g. csv) is not turned into factors
+options(digits=4)
+
+### LINK GAMS LIBRARIES
+GAMSPath <- "C:\\GAMS\\win64\\24.4"
+igdx(GAMSPath)
+
+### LOAD GAMS FILE
+targetPath <- "C:\\Users\\vandijkm\\GLOBIOM\\ISWEL_ZAM\\Model\\finaldata"
+file <- "OUTPUT_FAO_REGION_since1961.gdx"
+
+### LOAD MODEL DATA
+
+### GET GADM MAPS
+
+# Download Basemap
+basemapPath = paste0(dataPath, "/../../../",  "Other/Spatial/Maps", "/",iso3c)
+
+# Obtain country coordinates for target country
+GADM_f <- function(iso3c, lev=0, proj = "+proj=longlat +datum=WGS84"){
+  gadm = getData('GADM', country=iso3c, level=lev, path= "Data")
+  # change projection 
+  projection <- proj
+  country.sp <- spTransform(gadm, CRS(projection))
+  return(country.sp)
+}
+
+# List of countries
+# http://stackoverflow.com/questions/9950144/access-lapply-index-names-inside-fun
+# http://stackoverflow.com/questions/9950144/access-lapply-index-names-inside-fun
+countries <- c("IND", "PAK", "BGD", "NPL", "LKA")
+Asia_pg <- sapply(countries, GADM_f, simplify = FALSE, USE.NAMES = TRUE) # In this way list names are preserved, which is not the case with lapply
+
+# Function to rename map ID so there is not conflict
+# http://stackoverflow.com/questions/5126745/gadm-maps-cross-country-comparision-graphics
+ID_rename_f <- function(i) {
+  name <- names(Asia_pg)[i]
+  Asia_pg[[i]] <- spChFIDs(Asia_pg[[i]], paste(name, row.names(Asia_pg[[i]]), sep = "_"))
+}
+
+Asia_pg <- lapply(seq_along(Asia_pg), ID_rename_f)
+Asia_pg <- do.call(rbind, Asia_pg)
+plot(Asia_pg)
+
+# Obtain GLOBIOM SIMU raster and link file
+# CHECK FILE, more adf files
+# CHECK projection is slightly different!!!
+SIMU_map <- raster(file.path(auxPath, "simu_raster\\sta.adf"))
+proj4string(SIMU_map)
+proj4string(Asia_pg)
+
+# projection alreadys seems to same
+Asia_pg <- spTransform(Asia_pg, CRS(proj4string(SIMU_map)))
+
+SimUIDLUID_map <- read_csv(file.path(auxPath, "SimUIDLUID_map.csv"))
+
+SIMU_Asia <- crop(SIMU_map, Asia_pg, updateNA=TRUE)
+SIMU_Asia <- mask(SIMU_Asia, Asia_pg, updateNA=TRUE)
+summary(SIMU_Asia)
+plot(SIMU_Asia)
+plot(Asia_pg, add = T)
+
+# Create dataframe and link LU 
+raster2df_f <- function(rasterfile){
+  TMP<-rasterfile %>% rasterToPoints %>% data.frame %>%
+    dplyr::rename(lon=x, lat=y)
+  return(TMP)
+}
+
+SIMU_Asia_df <- raster2df_f(SIMU_Asia) %>%
+  rename(SimUID = sta) %>%
+  left_join(., SimUIDLUID_map)
 
 
-pivot0<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-0.gdx","pivot",names=datanames,compress=T)
-pivot1<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-1.gdx","pivot",names=datanames,compress=T)
-pivot2<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-2.gdx","pivot",names=datanames,compress=T)
-pivot3<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-3.gdx","pivot",names=datanames,compress=T)
-pivot4<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-4.gdx","pivot",names=datanames,compress=T)
-pivot5<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-5.gdx","pivot",names=datanames,compress=T)
-pivot6<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-6.gdx","pivot",names=datanames,compress=T)
-pivot7<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-7.gdx","pivot",names=datanames,compress=T)
-pivot8<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-8.gdx","pivot",names=datanames,compress=T)
-pivot9<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-9.gdx","pivot",names=datanames,compress=T)
+# Download GLOBIOM data to map
+IIRA <- rgdx.param(file.path(dataPath, "CCAFS_SouthAsia\\gdx\\output_SSPs_CCAFS_CC-0.gdx"), "IRRACR_COMPARE", compress = TRUE) %>%
+  mutate(LUId = as.character(AllColRow)) %>%
+  left_join(., SIMU_Asia_df) %>% 
+  filter(!is.na(LUId))
+
+# Duplicates for country (border cells?)
+# Duplicates for AEZclass?
+# Duolicates for .i8?
+
+summary(IIRA)
+IIRA2 <- IIRA %>%
+  group_by(lat, lon, SPECIES, AllScenYear) %>%
+  summarize(value = mean(IRRACR_COMPARE))
+
+# Create map
+Asia_ra <- fortify(Asia_pg)
+
+# Map function
+plot_f <- function(df){
+  print(unique(df$SPECIES))
+  #title = unique(with(df, paste(AllScenYear, SPECIES, sep="_")))
+  title = unique(df$SPECIES)
+  
+  ggplot() +
+    geom_raster(data = df, aes(y = lat, x = lon, fill = value)) + 
+    geom_path(data = Asia_ra, aes(y = lat, x = long, group = group), colour = "black") +
+    coord_equal() +
+    theme_bw() +
+    labs(
+      title = title,
+      #subtitle = "check",
+      #caption = "",
+      x="", y="") +
+    theme_classic() +
+    theme(legend.key=element_blank(),
+          line = element_blank(),
+          axis.text = element_blank()) +
+    scale_fill_gradientn(colours = rev(terrain.colors(10))) + 
+    facet_wrap(~AllScenYear) 
+}
+  
+
+# Make plots
+p_test <- IIRA2 %>%
+  group_by(SPECIES) %>%
+  do(plots = plot_f(.)) 
+
+pdf(file = file.path(dataPath, paste0("CCAFS_SouthAsia/Graphs/p_test_", Sys.Date(), ".pdf")), width = 12, height = 8)
+p_test$plots[1]
+dev.off()
+
+  
 
 
 
+### DOWNLOAD SCENARIO DATA
 
-pivot<-merge(pivot0,pivot1  ,all.x = TRUE, all.y = TRUE)
-pivot<-merge(pivot,	pivot2	,all.x = TRUE, all.y = TRUE)
-pivot<-merge(pivot,	pivot3	,all.x = TRUE, all.y = TRUE)
-pivot<-merge(pivot,	pivot4	,all.x = TRUE, all.y = TRUE)
-pivot<-merge(pivot,	pivot5	,all.x = TRUE, all.y = TRUE)
-pivot<-merge(pivot,	pivot6	,all.x = TRUE, all.y = TRUE)
-pivot<-merge(pivot,	pivot7	,all.x = TRUE, all.y = TRUE)
-pivot<-merge(pivot,	pivot8	,all.x = TRUE, all.y = TRUE)
-pivot<-merge(pivot,	pivot9	,all.x = TRUE, all.y = TRUE)
+# Functon to load gdx files
+gdx_load_f <- function(file, Symbol, names){
+  file2 <- file.path(dataPath, paste0("CCAFS_SouthAsia\\gdx\\", files))
+  df <- rgdx.param(file2, Symbol, names, compress = T)
+  df$source <- file
+  return(df)
+}
 
-#remove SSP
-pivot<-pivot[,-4]
+# Combine GDX files
+colnames <- c("ind1","scen","GCM","SSP","crop", "ind2", "reg", "year")
+TOTAL <- bind_rows(lapply(files, gdx_load_f, "pivot", colnames))
+summary(TOTAL)
+rm(colnames)
 
-#remove GCM
-pivot<-pivot[,-3]
+# Kcals
+kcals <- filter(TOTAL, ind1 == "pckal")
 
-write.csv(pivot,"R_data_figures/pivot_SA.csv", na="")
+ggplot(data = kcals,  aes(x = value, kcal_val))+
+  geom_point(data=kcals, mapping=aes(x=kcal_year_reg, kcal_val, color = scen)) 
 
 
-kcals<-subset(pivot, pivot$ind1=="pckal")
 
 #remove "total" column
 kcals<-kcals[,-3]
@@ -122,68 +242,15 @@ prod_allcrops<-subset(pivot, pivot$ind1=="Supply" & pivot$crop =="AllCrops")
 
 
 
-##### water use
-
-Water_reg_Compare0<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-0.gdx","Water_reg_Compare",names=datanames,compress=T)
-Water_reg_Compare1<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-1.gdx","Water_reg_Compare",names=datanames,compress=T)
-Water_reg_Compare2<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-2.gdx","Water_reg_Compare",names=datanames,compress=T)
-Water_reg_Compare3<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-3.gdx","Water_reg_Compare",names=datanames,compress=T)
-Water_reg_Compare4<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-4.gdx","Water_reg_Compare",names=datanames,compress=T)
-Water_reg_Compare5<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-5.gdx","Water_reg_Compare",names=datanames,compress=T)
-Water_reg_Compare6<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-6.gdx","Water_reg_Compare",names=datanames,compress=T)
-Water_reg_Compare7<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-7.gdx","Water_reg_Compare",names=datanames,compress=T)
-Water_reg_Compare8<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-8.gdx","Water_reg_Compare",names=datanames,compress=T)
-Water_reg_Compare9<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-9.gdx","Water_reg_Compare",names=datanames,compress=T)
-
-
-Water_reg_Compare<-merge(Water_reg_Compare0, Water_reg_Compare1  ,all.x = TRUE, all.y = TRUE)
-Water_reg_Compare<-merge(Water_reg_Compare,	Water_reg_Compare2	,all.x = TRUE, all.y = TRUE)
-Water_reg_Compare<-merge(Water_reg_Compare,	Water_reg_Compare3	,all.x = TRUE, all.y = TRUE)
-Water_reg_Compare<-merge(Water_reg_Compare,	Water_reg_Compare4	,all.x = TRUE, all.y = TRUE)
-Water_reg_Compare<-merge(Water_reg_Compare,	Water_reg_Compare5	,all.x = TRUE, all.y = TRUE)
-Water_reg_Compare<-merge(Water_reg_Compare,	Water_reg_Compare6	,all.x = TRUE, all.y = TRUE)
-Water_reg_Compare<-merge(Water_reg_Compare,	Water_reg_Compare7	,all.x = TRUE, all.y = TRUE)
-Water_reg_Compare<-merge(Water_reg_Compare,	Water_reg_Compare8	,all.x = TRUE, all.y = TRUE)
-Water_reg_Compare<-merge(Water_reg_Compare,	Water_reg_Compare9	,all.x = TRUE, all.y = TRUE)
-
-write.csv(Water_reg_Compare,"R_data_figures/Water_reg_Compare_SA.csv", na="")
+# Water use
+WaterUse <- bind_rows(lapply(files, gdx_load_f, "Water_reg_Compare", colnames))
 
 ##### production
+colnames <- c("reg","SSP","scen2", "scen" ,"year", "crop", "ind1" , "value")
 
+IRRACR <- bind_rows(lapply(files, gdx_load_f, "IRRACR_reg_COMPARE", colnames))
 
-irracr_datanames<- c("reg","SSP","scen2", "scen" ,"year", "crop", "ind1" , "value")
-
-IRRACR_reg_COMPARE0<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-0.gdx","IRRACR_reg_COMPARE",names=irracr_datanames,compress=T)
-IRRACR_reg_COMPARE1<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-1.gdx","IRRACR_reg_COMPARE",names=irracr_datanames,compress=T)
-IRRACR_reg_COMPARE2<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-2.gdx","IRRACR_reg_COMPARE",names=irracr_datanames,compress=T)
-IRRACR_reg_COMPARE3<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-3.gdx","IRRACR_reg_COMPARE",names=irracr_datanames,compress=T)
-IRRACR_reg_COMPARE4<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-4.gdx","IRRACR_reg_COMPARE",names=irracr_datanames,compress=T)
-IRRACR_reg_COMPARE5<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-5.gdx","IRRACR_reg_COMPARE",names=irracr_datanames,compress=T)
-IRRACR_reg_COMPARE6<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-6.gdx","IRRACR_reg_COMPARE",names=irracr_datanames,compress=T)
-IRRACR_reg_COMPARE7<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-7.gdx","IRRACR_reg_COMPARE",names=irracr_datanames,compress=T)
-IRRACR_reg_COMPARE8<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-8.gdx","IRRACR_reg_COMPARE",names=irracr_datanames,compress=T)
-IRRACR_reg_COMPARE9<- rgdx.param("H:/Water-SA/gdx/output_SSPs_CCAFS-9.gdx","IRRACR_reg_COMPARE",names=irracr_datanames,compress=T)
-
-
-IRRACR_reg_COMPARE<-merge(IRRACR_reg_COMPARE0,IRRACR_reg_COMPARE1 ,all.x = TRUE, all.y = TRUE)
-IRRACR_reg_COMPARE<-merge(IRRACR_reg_COMPARE,	IRRACR_reg_COMPARE2	,all.x = TRUE, all.y = TRUE)
-IRRACR_reg_COMPARE<-merge(IRRACR_reg_COMPARE,	IRRACR_reg_COMPARE3	,all.x = TRUE, all.y = TRUE)
-IRRACR_reg_COMPARE<-merge(IRRACR_reg_COMPARE,	IRRACR_reg_COMPARE4	,all.x = TRUE, all.y = TRUE)
-IRRACR_reg_COMPARE<-merge(IRRACR_reg_COMPARE,	IRRACR_reg_COMPARE5	,all.x = TRUE, all.y = TRUE)
-IRRACR_reg_COMPARE<-merge(IRRACR_reg_COMPARE,	IRRACR_reg_COMPARE6	,all.x = TRUE, all.y = TRUE)
-IRRACR_reg_COMPARE<-merge(IRRACR_reg_COMPARE,	IRRACR_reg_COMPARE7	,all.x = TRUE, all.y = TRUE)
-IRRACR_reg_COMPARE<-merge(IRRACR_reg_COMPARE,	IRRACR_reg_COMPARE8	,all.x = TRUE, all.y = TRUE)
-IRRACR_reg_COMPARE<-merge(IRRACR_reg_COMPARE,	IRRACR_reg_COMPARE9	,all.x = TRUE, all.y = TRUE)
-
-
-write.csv(IRRACR_reg_COMPARE,"R_data_figures/IRRACR_reg_COMPARE_SA.csv", na="")
-
-IrProduction<-subset(IRRACR_reg_COMPARE,IRRACR_reg_COMPARE$ind1=="IRR_Production")
-RfProduction<-subset(IRRACR_reg_COMPARE,IRRACR_reg_COMPARE$ind1=="RNFD_Production")
-Production<-merge(IrProduction,RfProduction ,all.x = TRUE, all.y = TRUE)
-
-Production<-Production[,-3]
-
+Prod <- filter(IRRACR, ind1 %in% c("IRR_Production", "RNFD_Production"))
 
 write.csv(Production,"R_data_figures/Production_COMPARE_SA.csv", na="")
 
