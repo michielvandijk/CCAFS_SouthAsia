@@ -1,0 +1,112 @@
+---
+title: "Climate change, Water Scarcity and Food Security in South Asia: Global-to-local analysis"
+author: "Amanda Palazzo and Michiel van Dijk"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: beamer_presentation
+---
+
+```{r setup, include=FALSE, results='hide', message=FALSE, warning=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE)
+
+library(pander)
+panderOptions('table.alignment.default', function(df)
+    ifelse(sapply(df, is.numeric), 'right', 'left'))
+panderOptions('table.split.table', Inf)
+panderOptions('big.mark', ",")
+panderOptions('keep.trailing.zeros', TRUE)
+
+library(rprojroot)
+root <- find_root(is_rstudio_project)
+knitr::opts_chunk$set(echo = FALSE, fig.height = 10, fig.width = 10)
+
+#source(file.path(root ,"Code/r_code/Tbl_countrysum.R"))
+Tbl_WDI <- read.csv(file.path(root, "Data/Tbl_WDI.csv"))
+source(file.path(root ,"Code/r_code/Fig.R"))
+source(file.path(root ,"Code/r_code/Map.R"))
+```
+
+
+## Introduction
+
+__Title__: Climate change, Water Scarcity and Food Security in South Asia: Global-to-local analysis
+
+__Objective__: to examine the impact of climate change and water scarecity on food security in South Asia using a global economic land use model and regional macroeconomic development insights from regional stakeholder developed scenarios.
+
+__Target journal__: Regional Environmental Change (PIC)?
+
+## Interesting literature
+- Nelson (2010), Food security, farming, and climate change to 2050, IFPRI
+- World Bank (2013), Turn Down the Heat, Climate Extremes, Regional Impacts and the Case for Resilience.
+- Various articles in REC
+
+## Framework but no modelling
+Vinke et al. (2016), _Climatic risks and impacts in South Asia: extremes of water scarcity and excess_, Regional Environmental Change
+
+```{r Fig_Vinke}
+knitr::include_graphics("P:\\globiom\\Projects\\Water\\Figure\\Figure1_Vinke_2016.gif")
+#knitr::include_graphics(file.path(root, "FigTab/Yield_Gap_Framework.png")) Does not work for some reason..
+```
+ 
+## Tackling climate issues we do not consider?
+- Flooding
+- Tropical Cyclones
+- Glacial loss and river flow
+
+
+## Outline paper
+1. Introduction
+    - Refer to Vinke (2016) for context
+    - Stress participatory scenario development and SAS methodology
+3. Background
+3. Methods
+    - Participatory scenario development
+    - GLOBIOM: Water extension
+4. Baseline scenarios
+5. Results
+    - Water issues:?
+    - Agriculture: production and land use?
+    - Food security: Prices and undernourishment
+    6. Discussion/Conclusions
+
+
+## Country summary
+
+\fontsize{5pt}{6pt}\selectfont
+```{r Tbl_countrysum, results='asis'}
+kable(Tbl_WDI, digits = 0)
+```
+\normalsize
+
+## Baseline
+
+```{r Fig_GDPPOP, message=FALSE, warning=FALSE}
+Fig_GDPPOP
+```
+
+## Calories
+```{r Fig_kcal, message=FALSE, warning=FALSE}
+Fig_kcal
+```
+
+## Rice prices
+```{r Fig_Prices, message=FALSE, warning=FALSE}
+Fig_prices
+```
+
+## Irrigated area
+```{r Map_IRRsh, message=FALSE, warning=FALSE}
+Map_IRRsh
+```
+
+## Discussion points
+
+- Preference for four four explorative baseline scenarios
+- What is the BAU climate scenario, if any?
+- Are baseline scenarios good enough?
+- What can we add on the water side?
+- What can we add on the food security side
+- Present only numbers for total region or per sub-region/country/grid cell?
+
+    
+
