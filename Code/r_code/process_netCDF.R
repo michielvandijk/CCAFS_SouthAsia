@@ -15,6 +15,7 @@ summary(dat)
 lat_data <- dat[[1]]; lon_data <- dat[[2]]; tim_data <- dat[[3]]; var_data <- dat[[4]]
 rm('dat')
 
+
 # -- average over time
 #typeof(var_data); class(var_data); dim(var_data)
 # 2005 to 2015 i.e. 11 years
