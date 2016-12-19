@@ -6,7 +6,7 @@
 #'========================================================================================================================================
 
 ### PACKAGES
-BasePackages<- c("tidyverse", "readxl", "stringr", "car", "scales", "RColorBrewer")
+BasePackages<- c("tidyverse", "readxl", "stringr", "car", "scales", "RColorBrewer", "rprojroot")
 lapply(BasePackages, library, character.only = TRUE)
 SpatialPackages<-c("rgdal", "ggmap", "raster", "rasterVis", "rgeos", "sp", "mapproj", "maptools", "proj4", "gdalUtils", "maps")
 lapply(SpatialPackages, library, character.only = TRUE)
@@ -61,7 +61,7 @@ Asia_pg <- do.call(rbind, Asia_pg)
 ### PREPARE GLOBIOM MAP DATA
 # Obtain GLOBIOM SIMU raster and link file
 # CHECK FILE, more adf files
-SIMU_map <- raster(file.path(auxPath, "simu_raster\\sta.adf"))
+SIMU_map <- raster(file.path(dataPath, "simu_raster\\sta.adf"))
 proj4string(SIMU_map)
 proj4string(Asia_pg)
 
@@ -69,7 +69,7 @@ proj4string(Asia_pg)
 Asia_pg <- spTransform(Asia_pg, CRS(proj4string(SIMU_map)))
 
 # Read link variable
-SimUIDLUID_map <- read_csv(file.path(auxPath, "SimUIDLUID_map.csv"))
+SimUIDLUID_map <- read_csv(file.path(dataPath, "simu_raster\\SimUIDLUID_map.csv"))
 
 # Cut out Asia
 SIMU_Asia <- crop(SIMU_map, Asia_pg, updateNA=TRUE)

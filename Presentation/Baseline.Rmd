@@ -52,6 +52,7 @@ knitr::include_graphics("P:\\globiom\\Projects\\Water\\Figure\\Figure1_Vinke_201
 - Flooding
 - Tropical Cyclones
 - Glacial loss and river flow
+- Sea level rise
 
 
 ## Outline paper
@@ -81,17 +82,20 @@ kable(Tbl_WDI, digits = 0)
 ## Baseline
 
 ```{r Fig_GDPPOP, message=FALSE, warning=FALSE}
-Fig_GDPPOP
+#Fig_GDPPOP
 ```
-
+## Water Demand by Sector and Source 
+```{r water_dem_sect_source}
+knitr::include_graphics("P:\\globiom\\Projects\\Water\\CCAFS_SouthAsia\\Graphs\\water_dem_sect_source.gif")
+```
 ## Calories
 ```{r Fig_kcal, message=FALSE, warning=FALSE}
-Fig_kcal
+#Fig_kcal
 ```
 
 ## Rice prices
 ```{r Fig_Prices, message=FALSE, warning=FALSE}
-Fig_prices
+#Fig_prices
 ```
 
 ## Irrigated area
@@ -107,6 +111,7 @@ Map_IRRsh
 - What can we add on the water side?
 - What can we add on the food security side
 - Present only numbers for total region or per sub-region/country/grid cell?
+- Quick estimation of areas under threat from sea level rise through identify production on coastal areas?
 
     
 

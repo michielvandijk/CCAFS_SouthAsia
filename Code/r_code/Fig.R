@@ -170,8 +170,8 @@ Fig_GDPPOP = ggplot(data = GDPPOP, aes(x = ind2, y = index, fill = ind2)) +
     #caption = "",
     x = "" , y = "Index (2010=1)") +
   theme_classic() +
-  guides(fill = "none") +
-  theme(panel.spacing = unit(0, "lines")) 
+  guides(fill = "none")
+  #theme(panel.spacing = unit(0, "lines")) 
 
 Fig_GDPPOP
 
