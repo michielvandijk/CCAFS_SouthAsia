@@ -61,12 +61,18 @@ worldmap_poly <- map2SpatialPolygons(worldmap,
 
 ### COMBINE MULTIPLE BANDS (YEARS) IN RASTER STACK
 ncdf_file <- file.path(dataPath, "\\Water_demand\\watergap\\wfas\\old\\watergap_ssp2_rcp6p0_dom_ww_annual_2005_2100.nc")
+library(RNetCDF)
+test <- open.nc(ncdf_file)
+print.nc(test)
+close.nc(test)
+
 file  <- stack(ncdf_file)
 names(file) <- c(2005:2100)
 file
 
 W <- file[[6]]
 W
+histogram(W)
 
 # Visualise water map, take log as distribution is heavily skewed
 # Most locations are in Green Land and the Northern part of the world but also some in African and Australia.
@@ -152,6 +158,7 @@ WD_comp <- left_join(WD_simu, WD_ncdf) %>%
 WD_wld <- data.frame(rasterToPoints(W))
 sum(WD_wld$X2010)/1000000
 
+########################################################
 #### Test India
 # SIMUs in India
 IND_map = getData('GADM', country="IND", level=0)
@@ -161,7 +168,7 @@ IND_simu_WD <-
 names(IND_simu)
 
 check_IND <-filter(WD_simu, ID == 101)
-sum(check_IND$layer, na.rm=T)/1000000
+sum(check_IND$layer, na.rm=T)/1000000000
 
 
 zoneCountryMap, df=T) %>% rename(Production = TZA_spam2005v2r0_production_maize_total) %>%
