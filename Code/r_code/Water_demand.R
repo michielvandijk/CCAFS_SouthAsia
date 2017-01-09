@@ -125,7 +125,7 @@ W_SIMU <- data.frame(zonal(W_SIMU_r, SIMU_5min, 'sum')) %>%
   filter(zone !=0) %>%
   rename(SimUID = zone, value = sum) %>%
   inner_join(SIMU_LU) %>%
-  select(SimUID, LUId, value)
+  dplyr::select(SimUID, LUId, value)
 
 #### COMPARE TOTAL WATER DEMAND PER COUNTRY
 countries <- names(worldmap_poly)
