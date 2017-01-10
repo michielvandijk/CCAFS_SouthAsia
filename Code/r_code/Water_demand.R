@@ -125,16 +125,6 @@ processWater_f <- function(file_info, period){
 # zipFiles <- list.files(gzPath, pattern = ".gz", full.names = T)
 # lapply(zipFiles, gunzip, skip=TRUE)
 
-### GET WORLD MAP
-# Get map
-worldmap <- map("world", fill = TRUE, plot = FALSE)
-
-# Transform to polygon
-worldmap_poly <- map2SpatialPolygons(worldmap, 
-                                     IDs=sapply(strsplit(worldmap$names, ":"), "[", 1L), 
-                                     proj4string=CRS("+proj=longlat +datum=WGS84"))
-
-
 
 #########################################################################################
 #'Procedure to downscale water demand scenarios from Wada et al. (2016)
@@ -172,11 +162,10 @@ pcrglob_info <- data.frame(full_filename = list.files(file.path(dataPath, "Water
                          "PIndUseTech" = "ind_wc_tech", "PIndWW" = "ind_ww"),
          target_filename = gsub(".nc4", ".gdx", filename),
          full_target_filename = file.path(dataPath, paste0("Water_demand_simu/pcrglob/", target_filename)))
-rm(files)
 
 # Create GDX files
-lapply(c(1:10), function(x) processWater_f(pcrglob_info[x,], c(2000:2002)))
-
+#lapply(c(1:nrow(pcrglob_info)), function(x) processWater_f(pcrglob_info[x,], c(2000:2050)))
+lapply(c(1:10), function(x) processWater_f(pcrglob_info[x,], c(2000:2050)))
 
 ### WATERGAP model
 # We take the new_Jan2015 values
