@@ -1,37 +1,32 @@
 #'========================================================================================================================================
 #' Project:  CCAFS South Asia
-#' Subject:  Code to process netCDF files with water demand per SSP
+#' Subject:  Code to compare own calculated aggregates with country aggregates that come with data
 #' Author:   Michiel van Dijk
 #' Contact:  michiel.vandijk@wur.nl
 #'========================================================================================================================================
 
 ### PACKAGES
-BasePackages<- c("tidyverse", "readxl", "stringr", "car", "scales", "RColorBrewer")
-lapply(BasePackages, library, character.only = TRUE)
-SpatialPackages<-c("rgdal", "ggmap", "raster", "rasterVis", "rgeos", "sp", "mapproj", "maptools", "proj4", "gdalUtils")
-lapply(SpatialPackages, library, character.only = TRUE)
-AdditionalPackages <- c("WDI", "R.utils", "countrycode")
-lapply(AdditionalPackages, library, character.only = TRUE)
+if(!require(pacman)) install.packages("pacman")
+# Key packages
+p_load("tidyverse", "readxl", "stringr", "scales", "RColorBrewer", "rprojroot")
+# Spatial packages
+p_load("rgdal", "ggmap", "raster", "rasterVis", "rgeos", "sp", "mapproj", "maptools", "proj4", "gdalUtils")
+# Additional packages
+p_load("WDI", "countrycode")
+
 
 ### SET WORKING DIRECTORY
-wdPath <- "CCAFS_SouthAsia"
+### SET WORKING DIRECTORY
+wdPath <- "~/CCAFS_SouthAsia"
 setwd(wdPath)
 
+### SET DATAPATH
 dataPath <- "P:\\globiom\\Projects\\Water\\CCAFS_SouthAsia\\Data"
-dataPath <- "H:\\TEMP\\watergap"
 
 ### R SETTINGS
 options(scipen=999) # surpress scientific notation
 options("stringsAsFactors"=FALSE) # ensures that characterdata that is loaded (e.g. csv) is not turned into factors
 options(digits=4)
-
-### UNZIP .gz files
-
-# # Path with gz files
-# gzPath <- file.path(dataPath, "\\Water_demand\\watergap\\wfas\\old")
-# 
-# zipFiles <- list.files(gzPath, pattern = ".gz", full.names = T)
-# lapply(zipFiles, gunzip, skip=TRUE)
 
 ### GET WORLD MAP
 # Get map
@@ -43,45 +38,20 @@ worldmap_poly <- map2SpatialPolygons(worldmap,
                                      proj4string=CRS("+proj=longlat +datum=WGS84"))
 
 
+### DOWNLOAD 2010 domestic water withdrawel for models
+wfas_old_raw <- file.path(dataPath, "Water_demand\\watergap\\wfas\\old\\watergap_ssp2_rcp6p0_dom_ww_annual_2005_2100.nc")
+wfas_new_raw <- file.path(dataPath, "Water_demand\\watergap\\wfas\\new_Jan2015\\watergap_ssp2_rcp6p0_dom_ww_annual_2005_2100.nc")
 
-#########################################################################################
-#'Procedure to downscale water demand scenarios from Wada et al. (2016)
-#' 
-#'Problem: Water demand is presented at 0.5 x 0.5 degree resolution while
-#'while GLOBIOM SIMUs are defined at a higer resolution. Hence, we need a procedure to
-#'to downscale the water demand to the SIMU level. We adopt the following procedure:
-#' 
-#'1. Calculate the areas of the 05 degree cells and use it to calculate water demand per km2.
-#'2. Resample the 0.5 degree water demand/km2 map to a resolution of 5 arcmin so it is consistent with the 5 arcmin map of the SIMUs.
-#'3. Calculate the area of the SIMU raster cells.
-#'4. Calculate water demand per SIMU raster cell.
-#'5. Aggregate over SIMUs to calculate water demand per SIMU
-#'
-#'########################################################################################
+### ADD NAMES
+wfas_old  <- stack(wfas_old_raw)
+names(wfas_old) <- c(2005:2100)
 
+wfas_new  <- stack(wfas_new_raw)
+names(wfas_new) <- c(2005:2100)
 
-### COMBINE MULTIPLE BANDS (YEARS) IN RASTER STACK
-wfasold <- file.path(dataPath, "wfas\\old\\watergap_ssp2_rcp6p0_dom_ww_annual_2005_2100.nc")
-wfasnew <- file.path(dataPath, "wfas\\new_Jan2015\\watergap_ssp2_rcp6p0_dom_ww_annual_2005_2100.nc")
-
-library(RNetCDF)
-
-wfasold  <- stack(wfasold)
-names(wfasold) <- c(2005:2100)
-wfasnew  <- stack(wfasnew)
-names(wfasnew) <- c(2005:2100)
-
-
-W_old <- wfasold[[6]]
-W_new <- wfasnew[[6]]
-
-# Visualise water map, take log as distribution is heavily skewed
-# Most locations are in Green Land and the Northern part of the world but also some in African and Australia.
-# Probably these are desert locations with no water demand
-logW_old <- log(W_old)
-levelplot(logW_old) + layer(sp.polygons(worldmap_poly))
-logW_new <- log(W_new)
-levelplot(logW_new) + layer(sp.polygons(worldmap_poly))
+### SELECT 2010 map
+wfas_old_2010 <- wfas_old[[6]]
+wfas_new_2010 <- wfas_new[[6]]
 
 #### COMPARE TOTAL WATER DEMAND PER COUNTRY
 countries <- names(worldmap_poly)
@@ -89,39 +59,133 @@ pid <- sapply(slot(worldmap_poly, "polygons"), function(x) slot(x, "ID"))
 p.df <- data.frame(ID=1:length(worldmap_poly), country =  pid)     
 
 # Water demand by country
-# NB using fun = sum in extract resuls in some NAs (e.g. for India) although there is data
+# NB using fun = sum in extract results in some NAs (e.g. for India) although there is data
 # Possible na.rm is ignored.
-WD_old <- raster::extract(W_old, worldmap_poly, method = "bilinear", df = TRUE) %>%
+wfas_old_c <- raster::extract(wfas_old_2010, worldmap_poly, method = "bilinear", df = TRUE) %>%
   group_by(ID) %>%
-  summarize(w_old = sum(X2010, na.rm = TRUE)) %>%
+  summarize(wfas_old = sum(X2010, na.rm = TRUE)) %>%
   left_join(p.df,.) %>%
-  mutate(w_old = w_old/1000000,
+  mutate(wfas_old = wfas_old/1000000,
          iso3c = countrycode(country, "country.name", "iso3c"))
-sum(WD_old$w_old, na.rm = TRUE)
 
 
-WD_new <- raster::extract(W_new, worldmap_poly, method = "bilinear", df = TRUE) %>%
+wfas_new_c <- raster::extract(wfas_new_2010, worldmap_poly, method = "bilinear", df = TRUE) %>%
   group_by(ID) %>%
-  summarize(w_new = sum(X2010, na.rm = TRUE)) %>%
+  summarize(wfas_new = sum(X2010, na.rm = TRUE)) %>%
   left_join(p.df,.) %>%
-  mutate(w_new = w_new/1000000,
+  mutate(wfas_new = wfas_new/1000000,
          iso3c = countrycode(country, "country.name", "iso3c"))
-sum(WD_new$w_new, na.rm = TRUE)
 
-# check world total
-WD_wld_old <- data.frame(rasterToPoints(W_old))
-sum(WD_wld_old$X2010)/1000000
+### COMPARE WORLD TOTAL
+# Differences probably caused by different global country masks
+# From country aggregates
+sum(wfas_old_c$wfas_old, na.rm = TRUE)
+# Total of raw map
+wfas_old_2010_df <- data.frame(rasterToPoints(wfas_old_2010))
+sum(wfas_old_2010_df$X2010)/1000000
 
-WD_wld_new <- data.frame(rasterToPoints(W_new))
-sum(WD_wld_new$X2010)/1000000
+# From country aggregates
+sum(wfas_new_c$wfas_new, na.rm = TRUE)
+wfas_new_2010_df <- data.frame(rasterToPoints(wfas_new_2010))
+# Total of raw map
+sum(wfas_new_2010_df$X2010)/1000000
 
-# Compare with Excel sheet
-WFASxl <- read_excel(file.path(dataPath, "wfas\\new_Jan2015\\WFaS_WaterUse_simple.xlsx"), sheet = "domestic") %>%
-  filter(year == 2010, IdScen == 57) %>%
-  mutate(iso3c = countrycode(Country, "country.name", "iso3c"))
-sum(WFASxl$"domestic water withdrawals [mio.m3]", na.rm=T)
-comp <- left_join(WFASxl, WD_new)
+### COMPARE WITH COUNTRY AGGREGATES PRESENTED BY MODELS
+# wfas new
+wfas_new_c_org <- read_excel(file.path(dataPath, "Water_demand\\watergap\\wfas\\new_Jan2015\\WFaS_WaterUse_simple.xlsx"), sheet = "domestic") %>%
+  filter(year == 2010, IdScen == 57) %>% # SSP2
+  mutate(iso3c = countrycode(Country, "country.name", "iso3c")) %>%
+  rename(wfas_new_org = `domestic water withdrawals [mio.m3]`)
+sum(wfas_new_c_org$wfas_new_org, na.rm=T)
 
-ggplot(data = comp, aes(x = w_new, y = `domestic water withdrawals [mio.m3]`)) +
+comp_wfas_new <- left_join(wfas_new_c_org, wfas_new_c)
+
+ggplot(data = comp_wfas_new, aes(x = wfas_new, y = wfas_new_org)) +
   geom_abline(intercept = 0, slope=1)+
   geom_point()
+
+### TEST SPATIAL DOWNSCALING AND COMPARE WITH RAW DATA
+### LOAD TIF FILE WITH SIMU
+SIMU_5min <- raster(file.path(dataPath, "simu_raster_5min/rasti_simu_gr.tif"))
+W <- wfas_new_2010
+
+### 1. Calculate water demand per km2
+# Calculate area of cells
+W_area <- area(W)
+
+# Combine with water demand and calculate demand/km2
+W_km <- W/W_area
+
+
+### 2. Resample the 0.5 degree water demand/km2 map to a resolution of 5 arcmin 
+# Resample to 5 arcmin
+W_km_5min <- raster::resample(W_km, SIMU_5min, method="bilinear")
+
+# It appears some values are slightly <0 because of interpolation. We set them to 0
+W_km_5min[W_km_5min < 0] <- 0
+
+### 3. Calculate area of SIMU raster cells
+SIMU_area <- area(SIMU_5min)
+
+### 4. Calculate water demand per SIMU raster cell
+# Calculate demand
+W_SIMU_r <- W_km_5min * SIMU_area
+W_SIMU_r
+levelplot(W_SIMU_r)
+W_SIMU_r_check <- log(W_SIMU_r)
+levelplot(W_SIMU_r_check) + layer(sp.polygons(worldmap_poly))
+
+# Check which areas have zero values, meaning no water demand
+W_check <- W_SIMU_r
+W_check[W_check!=0] <- NA
+levelplot(W_check) + layer(sp.polygons(worldmap_poly))
+
+### 5. Aggregate water demand over SIMUs and link LUId
+
+# Load LUId link file
+SIMU_LU <- read_csv(file.path(dataPath, "simu_lu/SimUIDLUID.csv"))
+
+# Aggregate over SIMUs
+W_SIMU <- data.frame(zonal(W_SIMU_r, SIMU_5min, 'sum')) %>%
+  filter(zone !=0) %>%
+  rename(SimUID = zone, value = sum) %>%
+  inner_join(SIMU_LU) %>%
+  dplyr::select(SimUID, LUId, value)
+
+#### COMPARE TOTAL WATER DEMAND PER COUNTRY
+countries <- names(worldmap_poly)
+pid <- sapply(slot(worldmap_poly, "polygons"), function(x) slot(x, "ID"))
+p.df <- data.frame(ID=1:length(worldmap_poly), country =  pid)     
+
+# Water demand from NCDF
+# NB using fun = sum in extract resuls in some NAs (e.g. for India) although there is data
+# Possible na.rm is ignored.
+WD_ncdf <- raster::extract(W, worldmap_poly, method = "bilinear", df = TRUE) %>%
+  group_by(ID) %>%
+  summarize(ncdf = sum(X2010, na.rm = TRUE)) %>%
+  left_join(p.df,.) %>%
+  mutate(ncdf = ncdf/1000000)
+
+# Water demand from SIMU
+# NB using fun = sum in extract resuls in some NAs (e.g. for India) although there is data
+# Possible na.rm is ignored.
+WD_simu <- raster::extract(W_SIMU_r, worldmap_poly, method = "bilinear", df = TRUE) %>%
+  group_by(ID) %>%
+  summarize(simu = sum(layer, na.rm = TRUE)) %>%
+  left_join(p.df,.) %>%
+  mutate(simu = simu/1000000)
+
+# Compare
+WD_comp <- left_join(WD_simu, WD_ncdf) %>%
+  mutate(dif = simu/ncdf*100)
+
+ggplot(data = WD_comp, aes(x = simu, y = ncdf)) +
+  geom_abline(intercept = 0, slope=1)+
+  geom_point()
+
+# Compare world totals
+WD_wld <- data.frame(rasterToPoints(W))
+sum(WD_wld$X2010)/1000000
+sum(WD_comp$simu, na.rm=T)
+sum(WD_comp$ncdf, na.rm=T)
+
