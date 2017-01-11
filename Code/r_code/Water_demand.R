@@ -32,6 +32,54 @@ options(digits=4)
 source("Code/r_code/R2GDX.r")
 
 # Function to extract data from raster
+processWater_f <- function(file_info, period){
+  
+  # print file name
+  print(file_info$filename)
+  
+  # Downscale to SIMU level and create dataframe
+  SIMU_df <- lapply(seq_along(period), downscale_f, file_info) %>%
+    bind_rows() %>%
+    mutate(SimUID = factor(SimUID),
+           LUId = factor(LUId),
+           model = factor(model),
+           year = factor(year),
+           sector = factor(sector),
+           ssp = factor(ssp),
+           rcp = factor(rcp)) %>%
+    dplyr::select(SimUID, LUId, model, sector, ssp, rcp, year, value)
+  
+  
+  # load required GAMS libraries (folder user specific)
+  igdx("C:/GAMS/win64/24.4")
+  
+  # Create filename
+  GDXfile <- file_info$target_filename
+  
+  # Extract levels
+  level_file <- extractLevels_f(SIMU_df)
+  
+  # Create parameter file
+  parameter_file <- GDXPara_f(factor2Number_f(SIMU_df), "demand", "water demand", unname(level_file))
+  
+  # Create set lists
+  SIMUID <- GDXSet_f("SimUID", "SimUID", unname(level_file["SimUID"]))
+  LUID <- GDXSet_f("LUId", "LUId", unname(level_file["LUId"]))
+  MODEL <- GDXSet_f("model", "water model", unname(level_file["model"]))
+  SECTOR <- GDXSet_f("sector", "water sector", unname(level_file["sector"]))
+  SSP <- GDXSet_f("SSP", "SSP scenario", unname(level_file["ssp"]))
+  RCP <- GDXSet_f("RCP", "RCP scenario", unname(level_file["rcp"]))
+  YEAR <- GDXSet_f("year", "year", unname(level_file["year"]))
+  
+  # Create GDX file
+  print("Writing GDX file")
+  wgdx(file_info$full_target_filename, parameter_file, SIMUID, LUID, MODEL, SECTOR, SSP, RCP, YEAR)
+}
+
+
+
+
+# Function to extract data from raster
 downscale_f <- function(i, file_info){
   
   # Load stack
@@ -70,52 +118,12 @@ downscale_f <- function(i, file_info){
     mutate(model = file_info$model,
            year = y,
            sector = file_info$sector,
-           scenario = file_info$scenario,
+           ssp = file_info$ssp,
            rcp = file_info$rcp)
   
   return(rast_SIMU)
 }
 
-### FUNCTION TO PROCESS NC FILE AND WRITE TO GDX
-processWater_f <- function(file_info, period){
-  
-  # Downscale to SIMU level and create dataframe
-  SIMU_df <- lapply(seq_along(period), downscale_f, file_info) %>%
-    bind_rows() %>%
-    mutate(SimUID = factor(SimUID),
-           LUId = factor(LUId),
-           model = factor(model),
-           year = factor(year),
-           sector = factor(sector),
-           scenario = factor(scenario),
-           rcp = factor(rcp)) %>%
-    dplyr::select(SimUID, LUId, model, sector, scenario, year, value)
-  
-  
-  # load required GAMS libraries (folder user specific)
-  igdx("C:/GAMS/win64/24.4")
-  
-  # Create filename
-  GDXfile <- file_info$target_filename
-  
-  # Extract levels
-  level_file <- extractLevels_f(SIMU_df)
-  
-  # Create parameter file
-  parameter_file <- GDXPara_f(factor2Number_f(SIMU_df), "demand", "water demand", unname(level_file))
-  
-  # Create set lists
-  SIMUID <- GDXSet_f("SimUID", "SimUID", unname(level_file["SimUID"]))
-  LUID <- GDXSet_f("LUId", "LUId", unname(level_file["LUId"]))
-  MODEL <- GDXSet_f("model", "water model", unname(level_file["model"]))
-  SECTOR <- GDXSet_f("sector", "water sector", unname(level_file["sector"]))
-  SCENARIO <- GDXSet_f("scenario", "SSP scenario", unname(level_file["scenario"]))
-  YEAR <- GDXSet_f("year", "year", unname(level_file["year"]))
-  
-  # Create GDX file
-  print(file_info$target_filename)
-  wgdx(file_info$full_target_filename, parameter_file, SIMUID, LUID, MODEL, SECTOR, SCENARIO, YEAR)
-}
 
 ### UNZIP .gz files
 
@@ -154,18 +162,19 @@ SIMU_5min <- raster(file.path(dataPath, "simu_raster_5min/rasti_simu_gr.tif"))
 # Table with all information
 pcrglob_info <- data.frame(full_filename = list.files(file.path(dataPath, "Water_demand/pcrglob/wfas"), pattern = "*.nc4", full.names = T),
                          filename = list.files(file.path(dataPath, "Water_demand/pcrglob/wfas"), pattern = "*.nc4", full.names = F)) %>%
-  separate(filename, c("model", "rcp", "scenario", "sector", "time", "sy", "ey") , sep = "_", remove = F) %>%
+  separate(filename, c("model", "rcp", "ssp", "sector", "time", "sy", "ey") , sep = "_", remove = F) %>%
   separate(ey, c("ey", "ext")) %>%
   mutate(sy = as.numeric(sy),
          sector = recode(sector, "PDomUse" = "dom_wc", "PDomWW" = "dom_ww", "PDomUseTech" = "dom_use_tech", 
                          "PDomWWTech" = "dom_ww_tech", "PIndWWTech" = "ind_ww_tech", "PIndUse" = "ind_wc", 
                          "PIndUseTech" = "ind_wc_tech", "PIndWW" = "ind_ww"),
-         target_filename = gsub(".nc4", ".gdx", filename),
+         target_filename = gsub(".nc4", "_simu.gdx", filename),
          full_target_filename = file.path(dataPath, paste0("Water_demand_simu/pcrglob/", target_filename)))
 
 # Create GDX files
-#lapply(c(1:nrow(pcrglob_info)), function(x) processWater_f(pcrglob_info[x,], c(2000:2050)))
-lapply(c(1:10), function(x) processWater_f(pcrglob_info[x,], c(2000:2050)))
+lapply(c(1:nrow(pcrglob_info)), function(x) processWater_f(pcrglob_info[x,], c(2000:2050)))
+#lapply(c(1), function(x) processWater_f(pcrglob_info[x,], c(2000:2002)))
+
 
 ### WATERGAP model
 # We take the new_Jan2015 values
@@ -173,11 +182,11 @@ lapply(c(1:10), function(x) processWater_f(pcrglob_info[x,], c(2000:2050)))
 # Table with all information
 watergap_info <- data.frame(full_filename = list.files(file.path(dataPath, "Water_demand/watergap/wfas/new_Jan2015"), pattern = "*.nc", full.names = T),
                            filename = list.files(file.path(dataPath, "Water_demand/watergap/wfas/new_Jan2015"), pattern = "*.nc", full.names = F)) %>%
-  separate(filename, c("model", "scenario", "rcp", "sector", "type", "time", "sy", "ey") , sep = "_", remove = F) %>%
+  separate(filename, c("model", "ssp", "rcp", "sector", "type", "time", "sy", "ey") , sep = "_", remove = F) %>%
   separate(ey, c("ey", "ext")) %>%
   mutate(sy = as.numeric(sy),
          sector = paste(sector, type, sep = "_"),
-         target_filename = gsub(".nc", ".gdx", filename),
+         target_filename = gsub(".nc", "_simu.gdx", filename),
          full_target_filename = file.path(dataPath, paste0("Water_demand_simu/watergap/", target_filename))) %>%
   dplyr::select(-type)
 
