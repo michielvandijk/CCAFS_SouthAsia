@@ -178,6 +178,8 @@ lapply(c(1:nrow(pcrglob_info)), function(x) processWater_f(pcrglob_info[x,], c(2
 
 ### WATERGAP model
 # We take the new_Jan2015 values
+# We downscaled up to 2050. Downscaling up to can be done easily by: (1) removing the gsub call to change the filename from 2100 into 2050 and
+# (2) change the period into 2005:2100.
 
 # Table with all information
 watergap_info <- data.frame(full_filename = list.files(file.path(dataPath, "Water_demand/watergap/wfas/new_Jan2015"), pattern = "*.nc", full.names = T),
@@ -187,13 +189,11 @@ watergap_info <- data.frame(full_filename = list.files(file.path(dataPath, "Wate
   mutate(sy = as.numeric(sy),
          sector = paste(sector, type, sep = "_"),
          target_filename = gsub(".nc", "_simu.gdx", filename),
+         target_filename = gsub("2100", "2050", target_filename),
          full_target_filename = file.path(dataPath, paste0("Water_demand_simu/watergap/", target_filename))) %>%
   dplyr::select(-type)
 
-# Rename files
-file_info <- watergap_info[1,] 
-file_info$full_target_filename
+# Create GDX files
+#lapply(c(1:2), function(x) processWater_f(watergap_info[x,], c(2005:2006)))
+lapply(c(1:nrow(watergap_info)), function(x) processWater_f(watergap_info[x,], c(2005:2050)))
 
-lapply(c(1:2), function(x) processWater_f(watergap_info[x,], c(2000:2002)))
-
-###

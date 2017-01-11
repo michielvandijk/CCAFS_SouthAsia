@@ -65,5 +65,7 @@ The scripts produce one .gdx file that corresponds with each of the .nc or .nc4 
 - rcp: RCP scenario
 - value: Water demand downscaled at SimU level
 
+NOTE: The scenarios of the HO8 and WaterGap models run up to 2100. We only downscaled them to 2050 for now.
+
 # References
 
