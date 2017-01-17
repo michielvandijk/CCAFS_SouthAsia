@@ -1,29 +1,29 @@
 #'========================================================================================================================================
 #' Project:  CCAFS South Asia
-#' Subject:  Create plots
+#' Subject:  Create figures
 #' Author:   Michiel van Dijk
 #' Contact:  michiel.vandijk@wur.nl
 #'========================================================================================================================================
 
 ### PACKAGES
-BasePackages<- c("tidyverse", "readxl", "stringr", "car", "scales", "RColorBrewer", "rprojroot")
-lapply(BasePackages, library, character.only = TRUE)
-#SpatialPackages<-c("rgdal", "ggmap", "raster", "rasterVis", "rgeos", "sp", "mapproj", "maptools", "proj4", "gdalUtils")
-#lapply(SpatialPackages, library, character.only = TRUE)
-AdditionalPackages <- c("gdxrrw")
-lapply(AdditionalPackages, library, character.only = TRUE)
+if(!require(pacman)) install.packages("pacman")
+# Key packages
+p_load("tidyverse", "readxl", "stringr", "scales", "RColorBrewer", "rprojroot")
+# Spatial packages
+#p_load("rgdal", "ggmap", "raster", "rasterVis", "rgeos", "sp", "mapproj", "maptools", "proj4", "gdalUtils")
+# Additional packages
+p_load("gdxrrw")
 
-
-### SET WORKING DIRECTORY
+### DETERMINE ROOT PATH
 root <- find_root(is_rstudio_project)
 
-dataPath <- "P:\\globiom\\Projects\\Water" 
+### DATAPATH
+dataPath <- "P:\\globiom\\Projects\\Water\\CCAFS_SouthAsia" 
 
 ### R SETTINGS
 options(scipen=999) # surpress scientific notation
 options("stringsAsFactors"=FALSE) # ensures that characterdata that is loaded (e.g. csv) is not turned into factors
 options(digits=4)
-
 
 ### LINK GAMS LIBRARIES
 GAMSPath <- "C:\\GAMS\\win64\\24.4"
@@ -32,7 +32,7 @@ igdx(GAMSPath)
 ### GLOBIOM DATA PREPARATION
 # Functon to load gdx files
 gdx_load_f <- function(file, Symbol, names = NULL){
-  file2 <- file.path(dataPath, paste0("CCAFS_SouthAsia\\gdx\\", file))
+  file2 <- file.path(dataPath, paste0("Data\\GLOBIOM\\", file))
   print(file)
   df <- rgdx.param(file2, Symbol, names, compress = T)
   df$fileName <- file
@@ -40,14 +40,14 @@ gdx_load_f <- function(file, Symbol, names = NULL){
 }
 
 # Read scenario definitions and add file name
-scenDef <- read_excel(file.path(dataPath, "CCAFS_SouthAsia\\gdx\\scen_definitions.xlsx")) %>%
+scenDef <- read_excel(file.path(dataPath, "Data\\GLOBIOM\\scen_definitions.xlsx")) %>%
   mutate(fileName = paste0("output_SSPs_CCAFS_CC-", GDX_name, ".gdx"),
          scenName = trimws(scenName),
          climate_CC = trimws(climate_CC)) %>%
   dplyr::select(-SSP)
 
 # Read gdx files
-files <- list.files(file.path(dataPath, "CCAFS_SouthAsia\\gdx\\"), pattern = "output_SSPs_CCAFS_C")
+files <- list.files(file.path(dataPath, "Data\\GLOBIOM"), pattern = "output_SSPs_CCAFS_C")
 
 ### GET DATA
 ## Pivot data
