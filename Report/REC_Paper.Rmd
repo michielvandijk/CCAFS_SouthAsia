@@ -1,21 +1,28 @@
 ---
-title: "Global-to-local GLOBIOM procedure"
+title: "South Asia water, climate change and food security figures and maps"
 author: "Michiel van Dijk"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output: 
   word_document:
     reference_docx: ../Common/word_styles_01.docx
-bibliography: ../Common/micro-GLOBIOM.bib
+bibliography: ../Common/CCAFS_SouthAsia.bib
     
 ---
 
 ```{r setup, include=FALSE}
-# Knitr settings
-library(knitr)
-knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_chunk$set(echo = FALSE, fig.height = 10, fig.width = 10)
+library(rprojroot)
+root <- find_root(is_rstudio_project)
 
-# Pander settings
+library(knitr)
+knitr::opts_chunk$set(
+  fig.width=12, fig.height=8,
+  dpi = 300,
+  echo=FALSE, warning=FALSE, message=FALSE,
+  fig.path = file.path(root,"FigTabMap/out-"),
+  dev = "CairoPNG",
+  dev.args = list(CairoPNG = list(bg = "transparent"))
+  )
+
 library(pander)
 panderOptions('table.alignment.default', function(df)
     ifelse(sapply(df, is.numeric), 'right', 'left'))
@@ -23,38 +30,14 @@ panderOptions('table.split.table', Inf)
 panderOptions('big.mark', ",")
 panderOptions('keep.trailing.zeros', TRUE)
 
-# Determine root path
-library(rprojroot)
-root <- find_root(is_rstudio_project)
-
-# Source figures, tables and maps
 source(file.path(root, "Code/Fig.R"))
-source(file.path(root, "Code/Tble.R"))
-source(file.path(root, "Code/Map.R"))
-
+#source(file.path(root, "Code/Tab.R"))
+#source(file.path(root, "Code/Map.R"))
 ```
 
 # Introduction
-- Refer to Vinke (2016) for context
-- Stress participatory scenario development and SAS methodology
-
-# Background
-
-# Methods
-## Participatory scenario development
-
-## GLOBIOM: Water extension
-
-
-# Baseline scenarios
 
 # Results
-## Water issues
-## Food security
-##  Other
-
-#. Discussion/Conclusions
-
 
 
 ```{r Tbl_1}
