@@ -16,7 +16,6 @@ p_load("WDI", "countrycode")
 
 
 ### SET WORKING DIRECTORY
-### SET WORKING DIRECTORY
 wdPath <- "~/CCAFS_SouthAsia"
 setwd(wdPath)
 
@@ -29,16 +28,91 @@ options("stringsAsFactors"=FALSE) # ensures that characterdata that is loaded (e
 options(digits=4)
 
 ### GET WORLD MAP
-# Get map
+# Polygon map
 worldmap <- map("world", fill = TRUE, plot = FALSE)
-
 # Transform to polygon
 worldmap_poly <- map2SpatialPolygons(worldmap, 
                                      IDs=sapply(strsplit(worldmap$names, ":"), "[", 1L), 
                                      proj4string=CRS("+proj=longlat +datum=WGS84"))
 
+# Raster map
+worldmap_ras <- raster(file.path(dataPath, "global_raster/country.asc"))
+crs(worldmap_ras) <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"
+country_code <- read_csv((file.path(dataPath, "global_raster/country_code.csv")))
 
-### DOWNLOAD 2010 domestic water withdrawel for models
+### COMPARE COUNTRY AGGREGATES OF PCRGLOBWB WITH OWN CALCULATED BOTH FROM RASTER AND SIMU DOWNSCALED
+# Get data
+pcrglobwb <- file.path(dataPath, "Water_demand\\pcrglob\\wfas\\pcrglobwb_rcp6p0_ssp2_PDomUse_monthly_2000_2050.nc4")
+pcrglobwb2020 <- stack(pcrglobwb)[[21]] # Value for 2020
+
+# Calculated from country raster
+country_ag_ncdf <- data.frame(zonal(pcrglobwb2020, worldmap_ras, 'sum', na.rm=T)) %>%
+  dplyr::rename(country_code = zone, ncdf = sum) %>%
+  left_join(country_code,.) %>%
+  mutate(ncdf = ncdf/1000)
+
+# Calculated from simu
+# Input
+SIMU_LU <- read_csv(file.path(dataPath, "simu_lu/SimUIDLUID.csv"))
+SIMU_5min <- raster(file.path(dataPath, "simu_raster_5min/rasti_simu_gr.tif"))
+SIMU_5min <- projectRaster(SIMU_5min, worldmap_ras) # Add projection
+
+### 1. Calculate water demand per km2
+W <- pcrglobwb2020 
+# Calculate area of cells
+rast_area <- area(W)
+# Combine with water demand and calculate demand/km2
+rast_km <- W/rast_area
+  
+### 2. Resample the 0.5 degree water demand/km2 map to a resolution of 5 arcmin 
+# Resample to 5 arcmin
+rast_km_5min <- raster::resample(rast_km, SIMU_5min, method="bilinear")
+# It appears some values are slightly <0 because of interpolation. We set them to 0
+rast_km_5min[rast_km_5min < 0] <- 0
+  
+### 3. Calculate area of SIMU raster cells
+SIMU_area <- area(SIMU_5min)
+  
+### 4. Calculate water demand per SIMU raster cell
+# Calculate demand
+rast_SIMU_r <- rast_km_5min * SIMU_area
+
+# Aggregate to countries
+country_ag_simu <- data.frame(zonal(rast_SIMU_r, worldmap_ras, 'sum', na.rm=T)) %>%
+  dplyr::rename(country_code = zone, simu = sum) %>%
+  left_join(country_code,.) %>%
+  mutate(simu = simu/1000) 
+
+# Calculated from aggregate table
+country_ag_org <- read_excel(file.path(dataPath, "Water_demand\\pcrglob\\wfas\\pcrglobwb_water_use_country_annual_statistics_domestic_km3year_ssp1-3.xlsx"), sheet = "PDomUse_ssp2", na = "-9999") %>%
+  dplyr::select(`0`, `2020`) %>%
+  dplyr::rename(country_code = `0`, original = `2020`) %>%
+  left_join(country_code,.)
+
+# Combine and compare
+# SIMU downscaling and ncdf are the same. Excel original aggregate is different, probably because of different global map or procedure.
+comp <- left_join(country_ag_org, country_ag_ncdf) %>%
+  left_join(.,country_ag_simu)
+
+ggplot(data = comp, aes(x = simu, y = ncdf)) +
+  geom_abline(intercept = 0, slope=1)+
+  geom_point()
+
+ggplot(data = comp, aes(x = simu, y = original)) +
+  geom_abline(intercept = 0, slope=1)+
+  geom_point()
+
+ggplot(data = comp, aes(x = original, y = ncdf)) +
+  geom_abline(intercept = 0, slope=1)+
+  geom_point()
+
+rast_df <- data.frame(rasterToPoints(W))
+sum(rast_df$X40177)/1000
+sum(comp$simu, na.rm=T)
+sum(comp$ncdf, na.rm=T)
+
+
+### COMPARE OLD AND NEW DATA
 wfas_old_raw <- file.path(dataPath, "Water_demand\\watergap\\wfas\\old\\watergap_ssp2_rcp6p0_dom_ww_annual_2005_2100.nc")
 wfas_new_raw <- file.path(dataPath, "Water_demand\\watergap\\wfas\\new_Jan2015\\watergap_ssp2_rcp6p0_dom_ww_annual_2005_2100.nc")
 
@@ -162,7 +236,8 @@ p.df <- data.frame(ID=1:length(worldmap_poly), country =  pid)
 # Possible na.rm is ignored.
 WD_ncdf <- raster::extract(W, worldmap_poly, method = "bilinear", df = TRUE) %>%
   group_by(ID) %>%
-  summarize(ncdf = sum(X2010, na.rm = TRUE)) %>%
+  #summarize(ncdf = sum(X2010, na.rm = TRUE)) %>%
+  summarize(ncdf = sum(X40177, na.rm = TRUE)) %>%
   left_join(p.df,.) %>%
   mutate(ncdf = ncdf/1000000)
 
@@ -186,6 +261,7 @@ ggplot(data = WD_comp, aes(x = simu, y = ncdf)) +
 # Compare world totals
 WD_wld <- data.frame(rasterToPoints(W))
 sum(WD_wld$X2010)/1000000
+sum(WD_wld$X40177)/1000000
 sum(WD_comp$simu, na.rm=T)
 sum(WD_comp$ncdf, na.rm=T)
 
