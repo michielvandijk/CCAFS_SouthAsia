@@ -12,7 +12,7 @@ p_load("tidyverse", "readxl", "stringr", "scales", "RColorBrewer", "rprojroot")
 # Spatial packages
 #p_load("rgdal", "ggmap", "raster", "rasterVis", "rgeos", "sp", "mapproj", "maptools", "proj4", "gdalUtils")
 # Additional packages
-p_load("gdxrrw")
+p_load("gdxrrw", "WDI", "countrycode")
 
 ### DETERMINE ROOT PATH
 root <- find_root(is_rstudio_project)
@@ -54,7 +54,8 @@ files <- list.files(file.path(dataPath, "Data\\GLOBIOM"), pattern = "output_SSPs
 colnames <- c("ind1","scen","GCM","SSP","crop", "ind2", "region", "year")
 Pivot <- bind_rows(lapply(files, gdx_load_f, "pivot", colnames)) %>%
   left_join(., scenDef) %>%
-  mutate(year = as.numeric(as.character(year)))
+  mutate(year = as.numeric(as.character(year)),
+         iso3c = countrycode(region, "country.name", "iso3c"))
 rm(colnames)
 
 
@@ -142,38 +143,109 @@ plot3_f <- function(df, title) {
   p
 }
 
-### # GDP AND POP 
+
+### DOWNLOAD WDI HISTORICAL DATA
+WDIsearch("GDP, PPP")
+WDI_raw <- WDI(country="all", indicator=c("SP.POP.TOTL", "NY.GDP.MKTP.PP.KD"),
+               start=1960, end=2016) %>%
+  mutate(iso3c = countrycode(iso2c, "iso2c", "iso3c")) %>%
+  filter(!is.na(iso3c))
+
+saveRDS(WDI, file = paste("Cache/WDI_", Sys.Date(), ".rds", sep=""))
+
+WDI <- filter(WDI_raw, iso3c %in% c("IND", "BGD", "NPL", "LKA", "PAK")) %>%
+  rename(Population = SP.POP.TOTL, GDP = NY.GDP.MKTP.PP.KD) %>%
+  mutate(Population = Population/1000000, GDP = GDP/1000000000) %>%
+  select(-iso2c) %>%
+  gather(variable, value, -year, -iso3c, -country) %>%
+  na.omit()
+
+GDPPOP_hist <- WDI %>%
+  group_by(year, variable) %>%
+  summarize(value = sum(value, na.rm=T)) %>%
+  rename(ind2 = variable)
+
+
+### GDP  
 # Remove Bhutan because scenarios are not prepared
-# Macro data off all scenarios is stored in each GDX file so here we use info from GDX file 0
+# Macro data for all scenarios is stored in each GDX file so here we use info from GDX file 0
+GDP_sim <- filter(Pivot, ind2 %in% c("GDP"), GDX_name == 0, region %in% c("Bangladesh", "India", "Nepal", "Pakistan" , "SriLanka")) %>%
+  group_by(scen, ind2, year) %>%
+  summarise(value = sum(value, na.rm=T)) %>%
+  filter(scen %in% c("NewUSA", "Jugaad", "UnstFlourish", "PeoplePower", "Precipice"))
 
-# Prepare data
-GDPPOP <- filter(Pivot, ind2 %in% c("GDP", "Population"), GDX_name == 0, region != "Bhutan") %>%
-  group_by(scen, region, ind2) %>%
-  mutate(index = value/value[year==2010]) %>%
-  filter(year == 2050) %>%
-  ungroup() %>%
-  group_by(region, ind2) %>%
-  mutate(max = max(index),
-         min = min(index)) %>%
-  filter(((scen == "PeoplePower" & region != "World") | scen == "SSP2" & region == "World"), !(region %in% c("IndiaReg", "RSAS")))
+GDP_hist <- filter(GDPPOP_hist, ind2 == "GDP")
 
-# Bar plot
-# http://stackoverflow.com/questions/31458536/increase-space-between-bars-in-ggplot
-Fig_GDPPOP = ggplot(data = GDPPOP, aes(x = ind2, y = index, fill = ind2)) +
-  #scale_fill_manual(values = c("green", "white")) +
-  geom_bar(stat="identity", colour = "black", position = position_dodge(width = 0.1), width=1) + 
-  geom_errorbar(aes(ymax = max, ymin = min), position = position_dodge(width = 0.1), width = 0.25) +
-  facet_grid(~region) +
+Fig_GDP <- ggplot(data = GDP_sim, aes(x = year, y = value, colour = scen)) +
+  geom_line(data = GDP_hist, aes(x = year, y = value), colour = "black", size = 1.5) +
+  geom_line( size = 1.5) +
   labs(
     title = "",
     #subtitle = "check",
     #caption = "",
-    x = "" , y = "Index (2010=1)") +
-  theme_classic() +
-  guides(fill = "none")
-  #theme(panel.spacing = unit(0, "lines")) 
+    x = "" , y = "GDP") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        legend.position="bottom") +
+  guides(colour = guide_legend(nrow=1)) +
+  scale_y_continuous(labels = comma) +
+  scale_color_brewer(name = "", 
+                     labels = c("New USA", "Jugaad" , "Unst Flourish", "People Power", " Precipice"), palette = "Spectral")
 
-Fig_GDPPOP
+Fig_GDP
+
+
+### Population
+POP_sim <- filter(Pivot, ind2 %in% c("Population"), GDX_name == 0, region %in% c("Bangladesh", "India", "Nepal", "Pakistan" , "SriLanka")) %>%
+  group_by(scen, ind2, year) %>%
+  summarise(value = sum(value, na.rm=T)) %>%
+  filter(scen %in% c("NewUSA", "Jugaad", "UnstFlourish", "PeoplePower", "Precipice"))
+
+POP_hist <- filter(GDPPOP_hist, ind2 == "Population", year <= 2000)
+
+Fig_POP <- ggplot(data = POP_sim, aes(x = year, y = value, colour = scen)) +
+  geom_line(data = POP_hist, aes(x = year, y = value), colour = "black", size = 1.5) +
+  geom_line( size = 1.5) +
+  labs(
+    title = "",
+    #subtitle = "check",
+    #caption = "",
+    x = "" , y = "GDP") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        legend.position="bottom") +
+  guides(colour = guide_legend(nrow=1)) +
+  scale_y_continuous(labels = comma) +
+  scale_color_brewer(name = "", 
+                     labels = c("New USA", "Jugaad" , "Unst Flourish", "People Power", " Precipice"), palette = "Spectral")
+
+Fig_POP
+
+### Yield
+yld_sim <- filter(Pivot, ind1 %in% c("YIELD"), GDX_name == 0, region %in% c("Bangladesh", "India", "Nepal", "Pakistan" , "SriLanka")) %>%
+  group_by(scen, crop, ind2, year) %>%
+  summarise(value = mean(value, na.rm=T)) %>%
+  filter(scen %in% c("NewUSA", "Jugaad", "UnstFlourish", "PeoplePower", "Precipice"))
+
+Fig_yld <- ggplot(data = yld_sim, aes(x = year, y = value, colour = ind2)) +
+  geom_line( size = 1.5) +
+  facet_wrap(~crop, scales = "free", ncol = 3) +
+  labs(
+    title = "",
+    #subtitle = "check",
+    #caption = "",
+    x = "" , y = "GDP") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        legend.position="bottom") +
+  guides(colour = guide_legend(nrow=1)) +
+  scale_y_continuous(labels = comma) 
+
+  #scale_color_brewer(name = "", 
+  #                   labels = c("Rainfed", "Irrigated")) # , palette = "Spectral")
+
+Fig_yld
+
 
 ### Kcals
 # Prepare data
@@ -219,6 +291,5 @@ Fig_prices <- plot3_f(Prices, "Prices")
 #   filter(ind1 %in% c("IRR_Production", "RNFD_Production"))
 # rm(colnames)
 # 
-
 
 
