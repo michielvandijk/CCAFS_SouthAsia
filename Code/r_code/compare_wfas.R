@@ -265,3 +265,107 @@ sum(WD_wld$X40177)/1000000
 sum(WD_comp$simu, na.rm=T)
 sum(WD_comp$ncdf, na.rm=T)
 
+### COMPARE AGGREGATES OF TOTALS IN EXCEL WITH TOTALS IN NC FILES
+# Read info on files
+pcrglob_info <- data.frame(full_filename = list.files(file.path(dataPath, "Water_demand/pcrglob/wfas"), pattern = "*.nc4", full.names = T),
+                           filename = list.files(file.path(dataPath, "Water_demand/pcrglob/wfas"), pattern = "*.nc4", full.names = F)) %>%
+  separate(filename, c("model", "rcp", "ssp", "sector", "time", "sy", "ey") , sep = "_", remove = F) %>%
+  separate(ey, c("ey", "ext")) %>%
+  mutate(sy = as.numeric(sy),
+         sector = recode(sector, "PDomUse" = "dom_wc", "PDomWW" = "dom_ww", "PDomUseTech" = "dom_use_tech", 
+                         "PDomWWTech" = "dom_ww_tech", "PIndWWTech" = "ind_ww_tech", "PIndUse" = "ind_wc", 
+                         "PIndUseTech" = "ind_wc_tech", "PIndWW" = "ind_ww"),
+         target_filename = gsub(".nc4", "_simu.gdx", filename),
+         full_target_filename = file.path(dataPath, paste0("Water_demand_simu/pcrglob/", target_filename)))
+
+
+# Function to calculate total water per raster
+calc_tot_f <- function(i, file_info){
+    
+    # print file name
+    print(file_info$filename)
+    
+    # Load stack
+    stack <- stack(file_info$full_filename)
+    # extract raster
+    rast <- stack[[i]]
+    # Set year
+    y = file_info$sy + i -1
+    print(y)
+    # Calculate total water in file
+    rast_df <- data.frame(rasterToPoints(rast))
+    tot <- data.frame(year = y, total = sum(rast_df[,3]/1000)) %>%
+        mutate(model = file_info$model,
+               year = y,
+               sector = file_info$sector,
+               ssp = file_info$ssp,
+               rcp = file_info$rcp)
+    return(tot)
+  }
+
+# Function to read nc file and combine info from all layers
+nc_ag_f <- function(file_info, period){
+  nc_df <- lapply(seq_along(period), calc_tot_f, file_info) %>%
+  bind_rows() 
+  return(nc_df)
+}
+
+# Functon to load gdx files
+gdx_load_f <- function(file, Symbol, names = NULL){
+  GAMSPath <- "C:\\GAMS\\win64\\24.4"
+  library(gdxrrw)
+  igdx(GAMSPath)
+  print(file)
+  df <- rgdx.param(file, Symbol, names, compress = T)
+  #df$fileName <- file
+  return(df)
+}
+
+# Function to read GDX file and combine info
+gdx_ag_f <- function(file_info){
+  colnames <- c("SimUID","LUId", "model", "sector","ssp","rcp", "year")
+  df <- gdx_load_f(file_info$full_target_filename, "demand", colnames)
+  gdx_df <- df %>%
+    group_by(year, model, sector, ssp, rcp) %>%
+    summarize(total = sum(value, na.rm = T)/1000)
+  return(gdx_df)
+}
+
+
+# Calculate totals using original nc files
+tot_pcrglob_org <- bind_rows(lapply(c(1:nrow(pcrglob_info)), function(x) nc_ag_f(pcrglob_info[x,], c(2000:2050))))
+saveRDS(tot_pcrglob_org, "Cache/tot_pcrglob_org.rds")
+
+# Calculate totals using SIMU mapped nc files
+#tot_pcrglob_simu <- bind_rows(lapply(c(1:2), function(x) gdx_ag_f(pcrglob_info[x,])))
+tot_pcrglob_simu <- bind_rows(lapply(c(1:nrow(pcrglob_info)), function(x) gdx_ag_f(pcrglob_info[x,])))
+saveRDS(tot_pcrglob_simu, "Cache/tot_pcrglob_simu.rds")
+
+# Load Excel data
+# Function to load 
+tidy_f <- function(var){
+  print(var)
+  df <- read_excel(file.path(dataPath, "Raw/Macro/AgTFPindividualcountries_processed.xlsx"), sheet = var)
+  df_proc <- df %>%
+    filter(Country != "Nigeria-II") %>%
+    filter(!Note %in% "Redundant") %>%
+    select(-Order, -`Inc I`, -`Inc II`, -Note, -`Data Sources & Notes`, -`FAO N`) %>%
+    gather(year, value, -`WDI Code`, -Country, -Region, -`Sub-Region`) %>%
+    mutate(iso3c = countrycode(`WDI Code`, "wb", "iso3c"),
+           variable = var) %>%
+    filter(!is.na(iso3c)) %>%
+    select(-`WDI Code`)
+  return(df_proc)
+}
+
+
+### LOAD DATA
+variables <- c("Ag Output", "Ag Land", "Irrig", "Labor", "Livestock", "Machinery", "Fertilizer", "Feed")
+TFP_df_raw <- bind_rows(lapply(variables, tidy_f))
+
+# Compare data series
+total <- bind_rows(tot_pcrglob_org, tot_pcrglob_simu)
+
+df <- filter(total, ssp == "ssp1")
+ggplot(data = total, aes(x = year, y = value))
+
