@@ -335,37 +335,67 @@ gdx_ag_f <- function(file_info){
 # Calculate totals using original nc files
 tot_pcrglob_org <- bind_rows(lapply(c(1:nrow(pcrglob_info)), function(x) nc_ag_f(pcrglob_info[x,], c(2000:2050))))
 saveRDS(tot_pcrglob_org, "Cache/tot_pcrglob_org.rds")
+tot_pcrglob_org <- readRDS("Cache/tot_pcrglob_org.rds") %>%
+  mutate(source = "org")
 
 # Calculate totals using SIMU mapped nc files
 #tot_pcrglob_simu <- bind_rows(lapply(c(1:2), function(x) gdx_ag_f(pcrglob_info[x,])))
 tot_pcrglob_simu <- bind_rows(lapply(c(1:nrow(pcrglob_info)), function(x) gdx_ag_f(pcrglob_info[x,])))
 saveRDS(tot_pcrglob_simu, "Cache/tot_pcrglob_simu.rds")
+tot_pcrglob_simu <- readRDS("Cache/tot_pcrglob_simu.rds") %>%
+  ungroup() %>%
+  mutate(year = as.numeric(as.character(year)),
+         model = as.character(model), 
+         source = "simu")
 
 # Load Excel data
 # Function to load 
-tidy_f <- function(var){
+tidy_f <- function(var, file){
   print(var)
-  df <- read_excel(file.path(dataPath, "Raw/Macro/AgTFPindividualcountries_processed.xlsx"), sheet = var)
+  df <- read_excel(file, sheet = var)
   df_proc <- df %>%
-    filter(Country != "Nigeria-II") %>%
-    filter(!Note %in% "Redundant") %>%
-    select(-Order, -`Inc I`, -`Inc II`, -Note, -`Data Sources & Notes`, -`FAO N`) %>%
-    gather(year, value, -`WDI Code`, -Country, -Region, -`Sub-Region`) %>%
-    mutate(iso3c = countrycode(`WDI Code`, "wb", "iso3c"),
-           variable = var) %>%
-    filter(!is.na(iso3c)) %>%
-    select(-`WDI Code`)
+    filter(is.na(`0`)) %>%
+    dplyr::select(-`0`)   %>%
+    gather(year, value) %>%
+    mutate(year = as.numeric(year),
+           variable = var)
   return(df_proc)
 }
 
+# Load data
+file <- file.path(dataPath, "Water_demand\\pcrglob\\wfas\\pcrglobwb_water_use_country_annual_statistics_domestic_km3year_ssp1-3.xlsx")
+variables <- c("PDomWW_ssp1", "PDomWW_ssp2", "PDomWW_ssp3", "PDomUse_ssp1", "PDomUse_ssp2", "PDomUse_ssp3")
+tot_prcglob_xls_raw <- bind_rows(lapply(variables, tidy_f, file))
 
-### LOAD DATA
-variables <- c("Ag Output", "Ag Land", "Irrig", "Labor", "Livestock", "Machinery", "Fertilizer", "Feed")
-TFP_df_raw <- bind_rows(lapply(variables, tidy_f))
 
-# Compare data series
-total <- bind_rows(tot_pcrglob_org, tot_pcrglob_simu)
+tot_prcglob_xls <- tot_prcglob_xls_raw %>%
+  separate(variable, c("sector", "ssp") , sep = "_", remove = T) %>%
+  filter(sector == "PDomWW") %>%
+  rename(total = value) %>%
+  dplyr::select(-sector) %>%
+  mutate(source = "xls")
 
-df <- filter(total, ssp == "ssp1")
-ggplot(data = total, aes(x = year, y = value))
+# Compare data series for WW
+# Appears that results for SSP1 and SSP3 are somehow reversed in the nc data!
+total <- bind_rows(tot_pcrglob_org, tot_pcrglob_simu) %>%
+  filter(sector %in% "dom_ww") %>%
+  dplyr::select(-rcp, -sector, -model) %>%
+  bind_rows(., tot_prcglob_xls)
 
+ggplot(data = total, aes(x = year, y = total, colour = source)) +
+  geom_line() +
+  facet_wrap(~ssp)
+  
+  
+# Manual calculation of 2050 values for ssp1 and ssp2
+# ssp1
+wwwssp1_2050 <- file.path(dataPath, "Water_demand\\pcrglob\\wfas\\pcrglobwb_rcp4p5_ssp1_PDomWW_monthly_2000_2050.nc4")
+wwwssp1_2050 <- stack(wwwssp1_2050)[[51]] # Value for 2050
+wwwssp1_2050 <- data.frame(rasterToPoints(wwwssp1_2050))
+sum(wwwssp1_2050$X54787)/1000
+
+# ssp3
+wwwssp3_2050 <- file.path(dataPath, "Water_demand\\pcrglob\\wfas\\pcrglobwb_rcp6p0_ssp3_PDomWW_monthly_2000_2050.nc4")
+wwwssp3_2050 <- stack(wwwssp3_2050)[[51]] # Value for 2050
+wwwssp3_2050 <- data.frame(rasterToPoints(wwwssp3_2050))
+sum(wwwssp3_2050$X54787)/1000
