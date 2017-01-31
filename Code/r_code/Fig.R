@@ -152,11 +152,12 @@ WDI_raw <- WDI(country="all", indicator=c("SP.POP.TOTL", "NY.GDP.MKTP.PP.KD"),
   filter(!is.na(iso3c))
 
 saveRDS(WDI, file = paste("Cache/WDI_", Sys.Date(), ".rds", sep=""))
+WDI_raw <- readRDS("Cache/WDI_2017-01-18.rds")
 
 WDI <- filter(WDI_raw, iso3c %in% c("IND", "BGD", "NPL", "LKA", "PAK")) %>%
   rename(Population = SP.POP.TOTL, GDP = NY.GDP.MKTP.PP.KD) %>%
   mutate(Population = Population/1000000, GDP = GDP/1000000000) %>%
-  select(-iso2c) %>%
+  dplyr::select(-iso2c) %>%
   gather(variable, value, -year, -iso3c, -country) %>%
   na.omit()
 
