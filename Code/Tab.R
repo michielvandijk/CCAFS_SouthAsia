@@ -25,7 +25,7 @@ options(digits=4)
 
 ### WDI TABLE
 # Load data
-WDI_raw <- readRDS(file = file.path(root, "Cache/WDI_2017-01-31.rds"))
+WDI_raw <- readRDS(file = file.path(root, "Cache/WDI_2017-02-06.rds"))
 
 # Get meta data
 WDI_meta <- as.data.frame(WDI_data[[1]]) 
@@ -44,14 +44,28 @@ Tab_WDI <- WDI_raw %>%
   filter(year == maxyear) %>%
   left_join(., WDI_meta) %>%
   ungroup() %>%
-  dplyr::select(country, name, value) %>%
+  dplyr::select(country, indicator, name, value) %>%
   spread(country, value)
 
 # Select final variables and reorder
-Tab_WDI <- Tab_WDI[c(2,5,1,3,7,11,10,8,6),]
+rows <- c("NV.AGR.TOTL.ZS", 
+        "SL.AGR.EMPL.ZS",
+        "AG.LND.AGRI.ZS",
+        "AG.LND.IRIG.AG.ZS",
+        "ER.H2O.FWAG.ZS",
+        "SH.STA.MALN.ZS",
+        "SN.ITK.DEFC.ZS",
+        "SI.POV.NAHC",
+        "NY.GDP.PCAP.PP.CD",
+        "SP.POP.TOTL")
 
+                   
+
+Tab_WDI <- Tab_WDI[match(rows, Tab_WDI$indicator),] 
+Tab_WDI$indicator <- NULL
 
 ### KEY FIGURES AS WORLD TOTAL
 # Tab_SA_rel <- WDI_raw %>% 
 #   filter(iso3c %in% c(countries) | country %in% c("World")) %>%
   
+

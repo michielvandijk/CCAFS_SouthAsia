@@ -30,7 +30,8 @@ options(digits=4)
 WDI_raw <- WDI(country = "all", indicator = c("NY.GDP.PCAP.PP.CD", "SP.RUR.TOTL.ZS", "SP.POP.TOTL",
                                            "SI.POV.NAGP", "AG.LND.IRIG.AG.ZS", "AG.LND.AGRI.ZS",
                                            "ER.H2O.FWTL.ZS", "ER.H2O.FWAG.ZS", "SH.STA.MALN.ZS", 
-                                             "SN.ITK.DEFC.ZS", "SL.AGR.EMPL.ZS", "SI.POV.NAHC"
+                                             "SN.ITK.DEFC.ZS", "SL.AGR.EMPL.ZS", "SI.POV.NAHC",
+                                           "NV.AGR.TOTL.ZS"
                                          ),
                   start=2000, end=2016) %>%
   mutate(iso3c = countrycode(iso2c, "iso2c", "iso3c")) 
