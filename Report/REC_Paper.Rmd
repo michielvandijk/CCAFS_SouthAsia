@@ -27,37 +27,40 @@ library(pander)
 panderOptions('table.alignment.default', function(df)
     ifelse(sapply(df, is.numeric), 'right', 'left'))
 panderOptions('table.split.table', Inf)
+panderOptions('digits', 2)
+panderOptions('round', 2)
 panderOptions('big.mark', ",")
 panderOptions('keep.trailing.zeros', TRUE)
 
-source(file.path(root, "Code/Fig.R"))
-#source(file.path(root, "Code/Tab.R"))
+#source(file.path(root, "Code/Fig.R"))
+source(file.path(root, "Code/Tab.R"))
 #source(file.path(root, "Code/Map.R"))
 ```
 
 # Introduction
-South Asia is regarded as one of the regions that will be severely affected by climate change [@WorldBank].[^1] A recent paper reviewed the climate risks and impacts in South Asian associated with increases in temperature between 1.5 and4 &degC above pre-industrial levels [@Vinke2016]. The study identified the impact of climate change on water availability and agriculture as the key risks for  development and food security in the region. With between X and X%, agriculture is an important part of GDP, employing between X and X% of the total working population (Table 1). The impact of climate change on agricultural production will therefore have severy consequences for the livelihoods of the poor, who are mostly active in the agricultural sector and are most vulnerable. 
+South Asia is regarded as one of the regions that will be severely affected by climate change [@WorldBank2013].[^1] A recent paper reviewed the climate risks and impacts in South Asian associated with increases in temperature between 1.5 and 4 &deg;C above pre-industrial levels [@Vinke2016]. The study identified the impact of climate change on water availability and agriculture as the key risks for  development and food security in the region. With between 9% and 25%, agriculture is an important part of GDP, employing between 30% and 50% of the total working population (Table 1). The impact of climate change on agricultural production will therefore have severe consequences for the livelihoods of the poor, who are mostly active in the agricultural sector and are most vulnerable. 
 
-According to a meta analysis, temperature increase in South Asia will decreae crop yield be XX and XX [@ref]. On top of this, severe water constraints are expected to affect future agricultural productivity even further in the region. A study revealed that there is a large chance that climate change alone will decrease per capita water availability by more than 10% in the majority of South Asian countries [@Gerten]. The agricultural sector is responsible for between X% and X% of total water withdrawel in the region. Hence, decreasing water availability in South Asia, which according to some studies, is already a water stressed region [@Fung], will have strong negative impact on future crop yield. [Example, information on groundwater and role of irrigation].
+According to a meta analysis, crop yields in South Asia are projected to decrease by 8.7% on average in comparison with current yield as a consequence of climate change [@Knox2012b]. On top of this, severe water constraints are expected to affect future agricultural productivity even further. A study revealed that there is a large chance that climate change alone will decrease per capita water availability by more than 10% in the majority of South Asian countries [@Gerten2011]. The agricultural sector is responsible for between 87% and 98% of total water withdrawal in the region. Hence, decreasing water availability in South Asia, which according to some studies, is already a water stressed region [@Fung2010], will have strong negative impact on future crop yield. [Example, information on groundwater and role of irrigation].
 
 
 [Some sentences on the impact of CC on water availability , monsoon etc - how do Yoshi's data capture this?]
 
-At present, food security conditions are already worrying with X and X% of the children are underweight and undernourishment is XX. Through the impact on decreasing water supply and lower agricultural productivity, climate change is expected to aggrevate the situation. A study found that climate change may result in a 62% increase in severe childhood stunting and 29% in moderate stunting [@Lloyd].[ADD NELSON results]. 
+At present, food security conditions are already worrying with 26-33% of the children are underweight and undernourishment is 8-22%. Through the impact on decreasing water supply and lower agricultural productivity, climate change is expected to aggravate the situation. A study found that climate change may result in a 61% increase in severe childhood stunting and 29% in moderate stunting [@Lloyd2011].[ADD NELSON results]. 
 
 Previous studies emphasise threat of climate change to livelihoods in South Asia. One of the main impact channels is runs through the intertwined impact of water availability and agricultural production on food security. These relationships are complex and involve a high level of uncertainty that is also affected by the impact of other drivers. For example, innovation might lead to new drought resistant crop varieties, as such mitigating the impact of temperature change on crop yield [@add]. On the other hand, population growth, economic development and changing diets are expected to lead to greater demand for agricultural products and, hence, water in the future, aggravating food security. 
 
-Integrated assessment models combined with scenario analysis are the standard approach to assess the impact of climate change [@Ref] and global food security. Recently, there is a growing interest to apply these models to study the impact of global drivers on specific regions [e.g. @VanDijk2014, @Aline]. To achieve the required level of detail, it is preffered to deepen the analysis with  scenarios that are tailored to local conditions and enrich the models with detailed country or region specific information. In this paper, we propose to use a 'global-to-local' integrated modelling approach to assess the water-agriculture-food security nexus in South Asia. As such, it will supplement existing modelling studies that have only focused one of these elements in the region [e.g. @ADD] as well as studies like @vinke2016 that present a very elaborate review of the impact of climate change but without modelling. 
+Integrated assessment models combined with scenario analysis are the standard approach to assess the impact of climate change [@Ref] and global food security. Recently, there is a growing interest to apply these models to study the impact of global drivers on specific regions [e.g. @Rutten2014, @Aline]. To achieve the required level of detail, it is preferred to deepen the analysis with  scenarios that are tailored to local conditions and enrich the models with detailed country or region specific information. In this paper, we propose to use a 'global-to-local' integrated modelling approach to assess the water-agriculture-food security nexus in South Asia. As such, it will supplement existing modelling studies that have only focused one of these elements in the region [e.g. @ADD] as well as studies like @vinke2016 that present a very elaborate review of the impact of climate change but without modelling. 
 
-The paper is structured as followes
+The paper is structured as follows. First, ...
 
 
 
 ```{r Tab-1}
-pander(Tab_WDI, missing = '-')
+pander(as.data.frame(Tab_WDI), missing = '-')
 ```
 
-
+##### Source: World Development Indicators (WDI).
+##### Note: Data reflect last available year in the WDI, 2014-2015 in most cases.
 [^1]: South Asia is defined as the region covering Bangladesh, India, Nepal, Pakistan and Sri Lanka.Due to data constraints we do not include Bhutan and the Maldives, which are also considered to be part of South Asia (@World Bank). 
 
 
@@ -71,11 +74,8 @@ pander(Tab_WDI, missing = '-')
 @Nelson, @Douglas2009 @Immerzeel
 
 ## Limitations
-This paper presented a scenario and simulation analysis to assess the impact of changes in climate and water demand on future food security in South Asia. The chain of impact between climate change, water supply and food security is complex and various climate change impacts are often intertwined and involve feedback loops. In this study, we only capture one particular relationship, namely the impact of climate-induced changes in yield and water supply on crop growth, leading, in turn, to changes in food supply anf food security. This is only part of the story, albeit an important one. As has been emphasised by @vinke2016, four other climate change impacts are relevant when assessing the interrelationship between climate change, water and food security in South Asia: (1) heat extremes, monsoon variability, river flow, tropical cyclones and sea-level rise. 
+This paper presented a scenario and simulation analysis to assess the impact of changes in climate and water demand on future food security in South Asia. The chain of impact between climate change, water supply and food security is complex and various climate change impacts are often intertwined and involve feedback loops. In this study, we only capture one particular relationship, namely the impact of climate-induced changes in yield and water supply on crop growth, leading, in turn, to changes in food supply and food security. This is only part of the story, albeit an important one. As has been emphasised by @vinke2016, four other climate change impacts are relevant when assessing the interrelationship between climate change, water and food security in South Asia: 
 
-The impact on food security is captured by predominantly captured through the impact of climate change on crop yield, resulting in reduced food supply. 
-
-Due to the nature of the modelling exercise, only one partiIn particular the analysis captured the impact of climate-induced changes in crop yield on food availability and of long-run changes in crop yield and water supply [@check] on 
 
 # Results
 
