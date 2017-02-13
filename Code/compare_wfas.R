@@ -333,14 +333,16 @@ gdx_ag_f <- function(file_info){
 
 
 # Calculate totals using original nc files
-tot_pcrglob_org <- bind_rows(lapply(c(1:nrow(pcrglob_info)), function(x) nc_ag_f(pcrglob_info[x,], c(2000:2050))))
+# Only select WW and WWTech
+pcrglob_info_sel <- filter(pcrglob_info, sector %in% c("dom_ww", "dom_ww_tech"))
+tot_pcrglob_org <- bind_rows(lapply(c(1:nrow(pcrglob_info_sel)), function(x) nc_ag_f(pcrglob_info_sel[x,], c(2000:2050))))
 saveRDS(tot_pcrglob_org, "Cache/tot_pcrglob_org.rds")
 tot_pcrglob_org <- readRDS("Cache/tot_pcrglob_org.rds") %>%
   mutate(source = "org")
 
 # Calculate totals using SIMU mapped nc files
 #tot_pcrglob_simu <- bind_rows(lapply(c(1:2), function(x) gdx_ag_f(pcrglob_info[x,])))
-tot_pcrglob_simu <- bind_rows(lapply(c(1:nrow(pcrglob_info)), function(x) gdx_ag_f(pcrglob_info[x,])))
+tot_pcrglob_simu <- bind_rows(lapply(c(1:nrow(pcrglob_info_sel)), function(x) gdx_ag_f(pcrglob_info_sel[x,])))
 saveRDS(tot_pcrglob_simu, "Cache/tot_pcrglob_simu.rds")
 tot_pcrglob_simu <- readRDS("Cache/tot_pcrglob_simu.rds") %>%
   ungroup() %>%
@@ -378,34 +380,51 @@ tot_prcglob_xls <- tot_prcglob_xls_raw %>%
 # Compare data series for WW
 # Appears that results for SSP1 and SSP3 are somehow reversed in the nc data!
 total <- bind_rows(tot_pcrglob_org, tot_pcrglob_simu) %>%
-  filter(sector %in% "dom_ww") %>%
-  dplyr::select(-rcp, -sector, -model) %>%
+  #filter(sector %in% c("dom_ww", "dom_ww_tech")) %>%
+  filter(sector %in% c("dom_ww")) %>%
+  dplyr::select(-rcp, model) %>%
   bind_rows(., tot_prcglob_xls)
 
+
+# Select plot df
+df <- total
+
 # Reverse SSP1 and SSP3 for simu and org
-total2 <- total 
-total2$ssp2 <- total$ssp
-total2$ssp2[total2$ssp == "ssp1" & total2$source == "org"] <- "ssp3"
-total2$ssp2[total2$ssp == "ssp3" & total2$source == "org"] <- "ssp1"
-total2$ssp2[total2$ssp == "ssp1" & total2$source == "simu"] <- "ssp3"
-total2$ssp2[total2$ssp == "ssp3" & total2$source == "simu"] <- "ssp1"
+df$ssp2 <- df$ssp
+df$ssp2[df$ssp == "ssp1" & df$source == "org"] <- "ssp3"
+df$ssp2[df$ssp == "ssp3" & df$source == "org"] <- "ssp1"
+df$ssp2[df$ssp == "ssp1" & df$source == "simu"] <- "ssp3"
+df$ssp2[df$ssp == "ssp3" & df$source == "simu"] <- "ssp1"
+
+df <- filter(df, ssp2 == "ssp3")
 
 # Plot
-ggplot(data = total2, aes(x = year, y = total, colour = source)) +
+ggplot(data = df, aes(x = year, y = total, colour = source)) +
   geom_line() +
   facet_wrap(~ssp2)
 ggsave("water_comparison.png")
   
 # Manual calculation of 2050 values for ssp1 and ssp2
-# ssp1
-wwwssp1_2050 <- file.path(dataPath, "Water_demand\\pcrglob\\wfas\\pcrglobwb_rcp4p5_ssp1_PDomWW_monthly_2000_2050.nc4")
-wwwssp1_2050 <- stack(wwwssp1_2050)[[51]] # Value for 2050
-wwwssp1_2050 <- data.frame(rasterToPoints(wwwssp1_2050))
-sum(wwwssp1_2050$X54787)/1000
+# ssp1 - ww
+wwssp1_2050 <- file.path(dataPath, "Water_demand\\pcrglob\\wfas\\pcrglobwb_rcp4p5_ssp1_PDomWW_monthly_2000_2050.nc4")
+wwssp1_2050 <- stack(wwssp1_2050)[[51]] # Value for 2050
+wwssp1_2050 <- data.frame(rasterToPoints(wwssp1_2050))
+sum(wwssp1_2050$X54787)/1000
 
+# ssp1 - ww_tech
+ww_techssp1_2050 <- file.path(dataPath, "Water_demand\\pcrglob\\wfas\\pcrglobwb_rcp4p5_ssp1_PDomWWTech_monthly_2000_2050.nc4")
+ww_techssp1_2050 <- stack(ww_techssp1_2050)[[51]] # Value for 2050
+ww_techssp1_2050 <- data.frame(rasterToPoints(ww_techssp1_2050))
+sum(ww_techssp1_2050$X54787)/1000
 
-# ssp3
-wwwssp3_2050 <- file.path(dataPath, "Water_demand\\pcrglob\\wfas\\pcrglobwb_rcp6p0_ssp3_PDomWW_monthly_2000_2050.nc4")
-wwwssp3_2050 <- stack(wwwssp3_2050)[[51]] # Value for 2050
-wwwssp3_2050 <- data.frame(rasterToPoints(wwwssp3_2050))
-sum(wwwssp3_2050$X54787)/1000
+# ssp3 - ww
+wwssp3_2050 <- file.path(dataPath, "Water_demand\\pcrglob\\wfas\\pcrglobwb_rcp6p0_ssp3_PDomWW_monthly_2000_2050.nc4")
+wwssp3_2050 <- stack(wwssp3_2050)[[51]] # Value for 2050
+wwssp3_2050 <- data.frame(rasterToPoints(wwssp3_2050))
+sum(wwssp3_2050$X54787)/1000
+
+# ssp3 - ww_tech
+ww_techssp3_2050 <- file.path(dataPath, "Water_demand\\pcrglob\\wfas\\pcrglobwb_rcp6p0_ssp3_PDomWWTech_monthly_2000_2050.nc4")
+ww_techssp3_2050 <- stack(ww_techssp3_2050)[[51]] # Value for 2050
+ww_techssp3_2050 <- data.frame(rasterToPoints(ww_techssp3_2050))
+sum(ww_techssp3_2050$X54787)/1000
