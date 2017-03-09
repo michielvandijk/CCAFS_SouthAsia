@@ -1,19 +1,21 @@
 #'========================================================================================================================================
 #' Project: CCAFS South Asia
-#' Subject:  Create maps a
-#' Author:   Michiel van Dijk
-#' Contact:  michiel.vandijk@wur.nl
+#' Subject: Create maps a
+#' Author:  Michiel van Dijk
+#' Contact: michiel.vandijk@wur.nl
 #'========================================================================================================================================
 
-### PACKAGES
-BasePackages<- c("tidyverse", "readxl", "stringr", "car", "scales", "RColorBrewer", "rprojroot")
-lapply(BasePackages, library, character.only = TRUE)
-SpatialPackages<-c("rgdal", "ggmap", "raster", "rasterVis", "rgeos", "sp", "mapproj", "maptools", "proj4", "gdalUtils", "maps")
-lapply(SpatialPackages, library, character.only = TRUE)
-AdditionalPackages <- c("WDI", "gdxrrw", "countrycode")
-lapply(AdditionalPackages, library, character.only = TRUE)
 
-### SET WORKING DIRECTORY
+### PACKAGES
+if(!require(pacman)) install.packages("pacman")
+# Key packages
+p_load("tidyverse", "readxl", "stringr", "scales", "RColorBrewer", "rprojroot")
+# Spatial packages
+p_load("rgdal", "ggmap", "raster", "rasterVis", "rgeos", "sp", "mapproj", "maptools", "proj4", "gdalUtils")
+# Additional packages
+p_load("WDI", "countrycode", "gdxrrw")
+
+### DETERMINE ROOT PATH
 root <- find_root(is_rstudio_project)
 
 auxPath <- "C:\\Users\\vandijkm\\GLOBIOM\\Auxiliary"
@@ -28,54 +30,28 @@ options(digits=4)
 GAMSPath <- "C:\\GAMS\\win64\\24.4"
 igdx(GAMSPath)
 
-
-### GET GADM MAPS
-# Download Basemap
-# Obtain country coordinates for target country
-GADM_f <- function(iso3c, lev=0, proj = "+proj=longlat +datum=WGS84"){
-  gadm = getData('GADM', country=iso3c, level=lev, path= file.path(root, "Data"))
-  # change projection 
-  projection <- proj
-  country.sp <- spTransform(gadm, CRS(projection))
-  return(country.sp)
-}
-
-# List of countries
-# http://stackoverflow.com/questions/9950144/access-lapply-index-names-inside-fun
-# http://stackoverflow.com/questions/9950144/access-lapply-index-names-inside-fun
-countries <- c("IND", "PAK", "BGD", "NPL", "LKA") # exclude "BTN"
-Asia_pg <- sapply(countries, GADM_f, simplify = FALSE, USE.NAMES = TRUE) # In this way list names are preserved, which is not the case with lapply
-
-# Function to rename map ID so there is not conflict
-# http://stackoverflow.com/questions/5126745/gadm-maps-cross-country-comparision-graphics
-ID_rename_f <- function(i) {
-  name <- names(Asia_pg)[i]
-  Asia_pg[[i]] <- spChFIDs(Asia_pg[[i]], paste(name, row.names(Asia_pg[[i]]), sep = "_"))
-}
-
-Asia_pg <- lapply(seq_along(Asia_pg), ID_rename_f)
-Asia_pg <- do.call(rbind, Asia_pg)
-#plot(Asia_pg)
+### LOAD SA MAP
+SA_adm0 <- readRDS(file.path(root, "Data/Maps/SA_adm0.rds"))
 
 
 ### PREPARE GLOBIOM MAP DATA
 # Obtain GLOBIOM SIMU raster and link file
 # CHECK FILE, more adf files
-SIMU_map <- raster(file.path(dataPath, "simu_raster\\sta.adf"))
+SIMU_map <- raster(file.path(dataPath, "CCAFS_SouthAsia/Data/simu_raster\\sta.adf"))
 proj4string(SIMU_map)
-proj4string(Asia_pg)
+proj4string(SA_adm0)
 
 # projection seems the same but we harmonise to be sure
-Asia_pg <- spTransform(Asia_pg, CRS(proj4string(SIMU_map)))
+SA_adm <- spTransform(SA_adm0, CRS(proj4string(SIMU_map)))
 
 # Read link variable
-SimUIDLUID_map <- read_csv(file.path(dataPath, "simu_raster\\SimUIDLUID_map.csv"))
+SimUIDLUID_map <- read_csv(file.path(dataPath, "CCAFS_SouthAsia/Data/simu_raster\\SimUIDLUID_map.csv"))
 
 # Cut out Asia
-SIMU_Asia <- crop(SIMU_map, Asia_pg, updateNA=TRUE)
-SIMU_Asia <- mask(SIMU_Asia, Asia_pg, updateNA=TRUE)
-#plot(SIMU_Asia)
-#plot(Asia_pg, add = T)
+SIMU_SA <- crop(SIMU_map, SA_adm0, updateNA=TRUE)
+SIMU_SA <- mask(SIMU_SA, SA_adm0, updateNA=TRUE)
+plot(SIMU_SA)
+plot(SA_adm, add = T)
 
 # Create dataframe and link LU 
 raster2df_f <- function(rasterfile){
@@ -84,7 +60,7 @@ raster2df_f <- function(rasterfile){
   return(TMP)
 }
 
-SIMU_Asia_df <- raster2df_f(SIMU_Asia) %>%
+SIMU_SA_df <- raster2df_f(SIMU_SA) %>%
   rename(SimUID = sta) %>%
   left_join(., SimUIDLUID_map)
 
