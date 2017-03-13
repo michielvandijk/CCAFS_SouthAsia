@@ -60,24 +60,27 @@ target_crops <- c("Rice", "Whea", "SugC", "Mill", "Pota", "Corn", "Soya", "Cass"
 
 # Pivot data
 # CHECK: some data is presented for both India and IndiaReg, which should be the same
-colnames <- c("ind1","scen","GCM","SSP","crop", "ind2", "region", "year")
-Pivot <- bind_rows(lapply(files, gdx_load_f, "pivot", colnames)) %>%
-  left_join(., scenDef) %>%
-  filter(scen %in% target_scen) %>%
-  mutate(iso3c = countrycode(region, "country.name", "iso3c"),
-         year = as.numeric(as.character(year)),
-         iso3c = ifelse(region == "World", "WLD", iso3c),
-         iso3c = ifelse(region == "IndiaReg", "IREG", iso3c),
-         iso3c = ifelse(region == "RSAS", "RSA", iso3c),
-         scen = factor(scen, levels = c("Precipice", "Jugaad", "PeoplePower", "UnstFlourish", "NewUSA"))) %>%
-  filter(!is.na(iso3c)) %>%
-  droplevels()
- 
-rm(colnames)
+# colnames <- c("ind1","scen","GCM","SSP","crop", "ind2", "region", "year")
+# Pivot <- bind_rows(lapply(files, gdx_load_f, "pivot", colnames)) %>%
+#   left_join(., scenDef) %>%
+#   filter(scen %in% target_scen) %>%
+#   mutate(iso3c = countrycode(region, "country.name", "iso3c"),
+#          year = as.numeric(as.character(year)),
+#          iso3c = ifelse(region == "World", "WLD", iso3c),
+#          iso3c = ifelse(region == "IndiaReg", "IREG", iso3c),
+#          iso3c = ifelse(region == "RSAS", "RSA", iso3c),
+#          scen = factor(scen, levels = c("Precipice", "Jugaad", "PeoplePower", "UnstFlourish", "NewUSA"))) %>%
+#   filter(!is.na(iso3c)) %>%
+#   droplevels()
+# rm(colnames)
+# 
+# saveRDS(Pivot, "Cache/Pivot.rds")
+Pivot <- readRDS(file.path(root, "Cache/Pivot.rds"))
+
 
 
 ### LOAD WDI HISTORICAL DATA
-WDI_raw <- readRDS("Cache/WDI_2017-03-08.rds")
+WDI_raw <- readRDS(file.path(root, "Cache/WDI_2017-03-08.rds"))
 
 WDI <- filter(WDI_raw, iso3c %in% c("IND", "BGD", "NPL", "LKA", "PAK")) %>%
   rename(Population = SP.POP.TOTL, GDP = NY.GDP.MKTP.PP.KD) %>%
@@ -231,9 +234,8 @@ Fig_POP_SA
 
 
 ### Yield
-
 # Load historical yield data from FAOSTAT
-YLD_hist <- readRDS("Cache/FAOSTAT_production_crop_SA.rds") %>%
+YLD_hist <- readRDS(file.path(root, "Cache/FAOSTAT_production_crop_SA.rds")) %>%
   filter(ALLPRODUCT %in% target_crops) %>%
   mutate(scen = "FAOSTAT") %>%
   ungroup()

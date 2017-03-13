@@ -32,9 +32,9 @@ panderOptions('round', 2)
 panderOptions('big.mark', ",")
 panderOptions('keep.trailing.zeros', TRUE)
 
-#source(file.path(root, "Code/Fig.R"))
+source(file.path(root, "Code/Fig.R"))
 source(file.path(root, "Code/Tab.R"))
-#source(file.path(root, "Code/Map.R"))
+source(file.path(root, "Code/Map.R"))
 ```
 
 # Introduction
@@ -65,9 +65,66 @@ pander(as.data.frame(Tab_WDI), missing = '-')
 
 
 
+
+
+# Baseline
+
+
+__Figure X: GDP growth by scenario__
+
 ```{r Fig-1}
-# Region
+Fig_GDP_SA
 ```
+
+
+__Figure X: Population growth by scenario__
+
+```{r Fig-2}
+Fig_POP_SA
+```
+
+
+__Figure X: Yield growth of main crops by scenario__
+
+```{r Fig-3}
+Fig_YLD_SA
+```
+
+
+
+__Figure X: Share of irrigated area in South Asia, 2000__
+
+```{r Map-1}
+Map_IRRsh_2000
+```
+
+
+# Results
+
+
+
+
+__Figure X: Change in share of irrigated area in South Asia, 2000-2050__
+
+```{r Map-2}
+Map_IRRsh_ch
+```
+
+
+__Figure X: Change in calorie supply, 2000-2050__
+
+```{r Fig_4}
+Fig_CAL
+```
+
+
+__Figure X: Change in food prices, 2000-2050__
+
+```{r Fig_5}
+Fig_prices
+```
+
+
 
 # Discussion
 ## Comparison with other studies
@@ -75,23 +132,6 @@ pander(as.data.frame(Tab_WDI), missing = '-')
 
 ## Limitations
 This paper presented a scenario and simulation analysis to assess the impact of changes in climate and water demand on future food security in South Asia. The chain of impact between climate change, water supply and food security is complex and various climate change impacts are often intertwined and involve feedback loops. In this study, we only capture one particular relationship, namely the impact of climate-induced changes in yield and water supply on crop growth, leading, in turn, to changes in food supply and food security. This is only part of the story, albeit an important one. As has been emphasised by @vinke2016, four other climate change impacts are relevant when assessing the interrelationship between climate change, water and food security in South Asia: 
-
-
-# Results
-
-
-```{r Tbl_1}
-
-```
-
-```{r Fig_1}
-
-```
-
-```{r Map_1}
-
-```
-
 
 
 # References

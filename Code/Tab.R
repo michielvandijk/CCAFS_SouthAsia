@@ -25,7 +25,7 @@ options(digits=4)
 
 ### WDI TABLE
 # Load data
-WDI_raw <- readRDS(file = file.path(root, "Cache/WDI_2017-02-06.rds"))
+WDI_raw <- readRDS(file = file.path(root, "Cache/WDI_2017-03-08.rds"))
 
 # Get meta data
 WDI_meta <- as.data.frame(WDI_data[[1]]) 
