@@ -42,7 +42,7 @@ country_code <- read_csv((file.path(dataPath, "global_raster/country_code.csv"))
 
 ### COMPARE COUNTRY AGGREGATES OF PCRGLOBWB WITH OWN CALCULATED BOTH FROM RASTER AND SIMU DOWNSCALED
 # Get data
-pcrglobwb <- file.path(dataPath, "Water_demand\\pcrglob\\wfas\\pcrglobwb_rcp6p0_ssp2_PDomUse_monthly_2000_2050.nc4")
+pcrglobwb <- file.path(dataPath, "Water_demand\\pcrglob\\wfas\\pcrglobwb_rcp4p5_ssp1_PDomUse_monthly_2000_2050.nc4")
 pcrglobwb2020 <- stack(pcrglobwb)[[21]] # Value for 2020
 
 # Calculated from country raster
@@ -57,28 +57,21 @@ SIMU_LU <- read_csv(file.path(dataPath, "simu_lu/SimUIDLUID.csv"))
 SIMU_5min <- raster(file.path(dataPath, "simu_raster_5min/rasti_simu_gr.tif"))
 SIMU_5min <- projectRaster(SIMU_5min, worldmap_ras) # Add projection
 
-### 1. Calculate water demand per km2
-W <- pcrglobwb2020 
-# Calculate area of cells
-rast_area <- area(W)
-# Combine with water demand and calculate demand/km2
-rast_km <- W/rast_area
-  
-### 2. Resample the 0.5 degree water demand/km2 map to a resolution of 5 arcmin 
-# Resample to 5 arcmin
-rast_km_5min <- raster::resample(rast_km, SIMU_5min, method="bilinear")
-# It appears some values are slightly <0 because of interpolation. We set them to 0
-rast_km_5min[rast_km_5min < 0] <- 0
-  
-### 3. Calculate area of SIMU raster cells
-SIMU_area <- area(SIMU_5min)
-  
-### 4. Calculate water demand per SIMU raster cell
-# Calculate demand
-rast_SIMU_r <- rast_km_5min * SIMU_area
+### 1. Ensure that water data has some raster resolution as simu grid. We rasterise to 0.08333 by scaling by 6.
+### The original water raster has a resolution of 0.5 degrees/6 = 0.08333. 
+### If we assume an even distribution we can divide by 36 (6x6) to reallocate the water over the new grid.
+rast <- pcrglobwb2020 
+
+# Rasterize to finer grid
+rast = disaggregate(rast, fact=6)
+
+# Divide by 36 to take average
+rast = rast/36
+
+
 
 # Aggregate to countries
-country_ag_simu <- data.frame(zonal(rast_SIMU_r, worldmap_ras, 'sum', na.rm=T)) %>%
+country_ag_simu <- data.frame(zonal(rast, worldmap_ras, 'sum', na.rm=T)) %>%
   dplyr::rename(country_code = zone, simu = sum) %>%
   left_join(country_code,.) %>%
   mutate(simu = simu/1000) 

@@ -1,3 +1,4 @@
+
 #'========================================================================================================================================
 #' Project:  CCAFS South Asia
 #' Subject:  Code to process netCDF files with water demand per SSP
@@ -81,7 +82,6 @@ processWater_f <- function(file_info, period){
 
 # Function to extract data from raster
 downscale_f <- function(i, file_info){
-  
   # Load stack
   stack <- stack(file_info$full_filename)
   # extract raster
@@ -89,29 +89,26 @@ downscale_f <- function(i, file_info){
   # Set year
   y = file_info$sy + i -1
   print(y)
+    
+  ### 1. Ensure that water data has some raster resolution as simu grid. We rasterise to 0.08333 by scaling by 6.
+  ### The original water raster has a resolution of 0.5 degrees/6 = 0.08333. 
+  ### If we assume an even distribution we can divide by 36 (6x6) to reallocate the water over the new grid.
+  # Rasterize to finer grid
+  rast = disaggregate(rast, fact=6)
   
-  ### 1. Calculate water demand per km2
-  # Calculate area of cells
-  rast_area <- area(rast)
-  # Combine with water demand and calculate demand/km2
-  rast_km <- rast/rast_area
+  # Divide by 36 to take average
+  rast = rast/36
   
-  ### 2. Resample the 0.5 degree water demand/km2 map to a resolution of 5 arcmin 
-  # Resample to 5 arcmin
-  rast_km_5min <- raster::resample(rast_km, SIMU_5min, method="bilinear")
-  # It appears some values are slightly <0 because of interpolation. We set them to 0
-  rast_km_5min[rast_km_5min < 0] <- 0
+  ### 2. Ensure that simu and water raster have same extent by resampling
+  # Set NA in SIMU raster to -1 as the water map has values for those locations and we want to know how much for checking
+  SIMU_5min[is.na(SIMU_5min)] <- -1
   
-  ### 3. Calculate area of SIMU raster cells
-  SIMU_area <- area(SIMU_5min)
+  # Crop water raster to simu raster so the have the same extent
+  rast = crop(rast, SIMU_5min)
   
-  ### 4. Calculate water demand per SIMU raster cell
-  # Calculate demand
-  rast_SIMU_r <- rast_km_5min * SIMU_area
-  
-  ### 5. Aggregate water demand over SIMUs and link LUId
-  rast_SIMU <- data.frame(zonal(rast_SIMU_r, SIMU_5min, 'sum')) %>%
-    filter(zone !=0) %>%
+  # Calculate sum of water over simus
+  rast_SIMU <- data.frame(zonal(rast, SIMU_5min, 'sum')) %>%
+    filter(!zone %in% c(-1, 0)) %>%
     rename(SimUID = zone, value = sum) %>%
     inner_join(SIMU_LU) %>%
     dplyr::select(SimUID, LUId, value) %>%
@@ -123,7 +120,7 @@ downscale_f <- function(i, file_info){
   
   return(rast_SIMU)
 }
-
+  
 
 ### UNZIP .gz files
 
@@ -161,7 +158,7 @@ SIMU_5min <- raster(file.path(dataPath, "simu_raster_5min/rasti_simu_gr.tif"))
 # Although it says monthly in the filename, data is already aggregated to annual values.
 # Table with all information
 pcrglob_info <- data.frame(full_filename = list.files(file.path(dataPath, "Water_demand/pcrglob/wfas"), pattern = "*.nc4", full.names = T),
-                         filename = list.files(file.path(dataPath, "Water_demand/pcrglob/wfas"), pattern = "*.nc4", full.names = F)) %>%
+                           filename = list.files(file.path(dataPath, "Water_demand/pcrglob/wfas"), pattern = "*.nc4", full.names = F)) %>%
   separate(filename, c("model", "rcp", "ssp", "sector", "time", "sy", "ey") , sep = "_", remove = F) %>%
   separate(ey, c("ey", "ext")) %>%
   mutate(sy = as.numeric(sy),
@@ -173,7 +170,7 @@ pcrglob_info <- data.frame(full_filename = list.files(file.path(dataPath, "Water
 
 # Create GDX files
 lapply(c(1:nrow(pcrglob_info)), function(x) processWater_f(pcrglob_info[x,], c(2000:2050)))
-#lapply(c(1), function(x) processWater_f(pcrglob_info[x,], c(2000:2002)))
+#lapply(c(1), function(x) processWater_f(pcrglob_info[x,], c(2020)))
 
 
 ### WATERGAP model
@@ -183,7 +180,7 @@ lapply(c(1:nrow(pcrglob_info)), function(x) processWater_f(pcrglob_info[x,], c(2
 
 # Table with all information
 watergap_info <- data.frame(full_filename = list.files(file.path(dataPath, "Water_demand/watergap/wfas/new_Jan2015"), pattern = "*.nc", full.names = T),
-                           filename = list.files(file.path(dataPath, "Water_demand/watergap/wfas/new_Jan2015"), pattern = "*.nc", full.names = F)) %>%
+                            filename = list.files(file.path(dataPath, "Water_demand/watergap/wfas/new_Jan2015"), pattern = "*.nc", full.names = F)) %>%
   separate(filename, c("model", "ssp", "rcp", "sector", "type", "time", "sy", "ey") , sep = "_", remove = F) %>%
   separate(ey, c("ey", "ext")) %>%
   mutate(sy = as.numeric(sy),
