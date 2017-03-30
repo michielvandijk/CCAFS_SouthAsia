@@ -41,6 +41,11 @@ crs(worldmap_ras) <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=
 country_code <- read_csv((file.path(dataPath, "global_raster/country_code.csv")))
 
 ### COMPARE COUNTRY AGGREGATES OF PCRGLOBWB WITH OWN CALCULATED BOTH FROM RASTER AND SIMU DOWNSCALED
+# TO DO
+# Calculate per country from original
+# Calculate per country from gdx, linking simu to countries. This will show for which countries there is incomplete
+# data, probably because simus are not defined. 
+
 # Get data
 pcrglobwb <- file.path(dataPath, "Water_demand\\pcrglob\\wfas\\pcrglobwb_rcp4p5_ssp1_PDomUse_monthly_2000_2050.nc4")
 pcrglobwb2020 <- stack(pcrglobwb)[[21]] # Value for 2020
@@ -258,6 +263,10 @@ sum(WD_wld$X40177)/1000000
 sum(WD_comp$simu, na.rm=T)
 sum(WD_comp$ncdf, na.rm=T)
 
+
+
+
+
 ### COMPARE AGGREGATES OF TOTALS IN EXCEL WITH TOTALS IN NC FILES
 # Read info on files
 pcrglob_info <- data.frame(full_filename = list.files(file.path(dataPath, "Water_demand/pcrglob/wfas"), pattern = "*.nc4", full.names = T),
@@ -378,9 +387,15 @@ total <- bind_rows(tot_pcrglob_org, tot_pcrglob_simu) %>%
   dplyr::select(-rcp, model) %>%
   bind_rows(., tot_prcglob_xls)
 
-
 # Select plot df
 df <- total
+
+# Plot
+ggplot(data = df, aes(x = year, y = total, colour = source)) +
+  geom_line() +
+  facet_wrap(~ssp)
+ggsave("water_comparison.png")
+
 
 # Reverse SSP1 and SSP3 for simu and org
 df$ssp2 <- df$ssp
@@ -389,7 +404,7 @@ df$ssp2[df$ssp == "ssp3" & df$source == "org"] <- "ssp1"
 df$ssp2[df$ssp == "ssp1" & df$source == "simu"] <- "ssp3"
 df$ssp2[df$ssp == "ssp3" & df$source == "simu"] <- "ssp1"
 
-df <- filter(df, ssp2 == "ssp3")
+#df <- filter(df, ssp2 == "ssp3")
 
 # Plot
 ggplot(data = df, aes(x = year, y = total, colour = source)) +
@@ -421,3 +436,4 @@ ww_techssp3_2050 <- file.path(dataPath, "Water_demand\\pcrglob\\wfas\\pcrglobwb_
 ww_techssp3_2050 <- stack(ww_techssp3_2050)[[51]] # Value for 2050
 ww_techssp3_2050 <- data.frame(rasterToPoints(ww_techssp3_2050))
 sum(ww_techssp3_2050$X54787)/1000
+
