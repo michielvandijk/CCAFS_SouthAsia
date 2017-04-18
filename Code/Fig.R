@@ -35,7 +35,7 @@ igdx(GAMSPath)
 ### GLOBIOM DATA PREPARATION
 # Function to load gdx files
 gdx_load_f <- function(file, Symbol, names = NULL){
-  file2 <- file.path(dataPath, paste0("Data\\GLOBIOM\\", file))
+  file2 <- file.path(dataPath, paste0("Data\\GLOBIOM\\AprilRuns\\", file))
   print(file)
   df <- rgdx.param(file2, Symbol, names, compress = T)
   df$fileName <- file
@@ -44,13 +44,15 @@ gdx_load_f <- function(file, Symbol, names = NULL){
 
 # Read scenario definitions and add file name
 scenDef <- read_excel(file.path(dataPath, "Data\\GLOBIOM\\scen_definitions.xlsx")) %>%
-  mutate(fileName = paste0("output_SSPs_CCAFS_CC-", GDX_name, ".gdx"),
+  mutate(
+         #fileName = paste0("output_SSPs_CCAFS_CC-", GDX_name, ".gdx"),
+         fileName = paste0("output_SSPs_CCAFS_CC1_gw_dem_eff-", GDX_name, ".gdx"),
          scenName = trimws(scenName),
          climate_CC = trimws(climate_CC)) %>%
   dplyr::select(-SSP)
 
 # Read gdx files
-files <- list.files(file.path(dataPath, "Data\\GLOBIOM"), pattern = "output_SSPs_CCAFS_C")
+files <- list.files(file.path(dataPath, "Data\\GLOBIOM\\AprilRuns"), pattern = "output_SSPs_CCAFS_C")
 
 ### GET DATA
 # Define colours, scenarios, etc
@@ -312,7 +314,8 @@ POP_hist <- POP_hist %>%
 CAL_hist <- read.csv(file.path(root, "Data/calcpcpd.csv")) %>%
   mutate(iso3c = countrycode(AreaCode, "fao", "iso3c")) %>%
   filter(iso3c %in% c("IND", "BGD", "NPL", "LKA", "PAK")) %>%
-  select(iso3c, year = Year, value = Value) 
+  select(iso3c, year = Year, value = Value) %>%
+  filter(year <= 2000)
 
 CAL_hist_SA <- CAL_hist %>%
   left_join(., POP_hist) %>%
@@ -320,10 +323,23 @@ CAL_hist_SA <- CAL_hist %>%
   group_by(year, iso3c) %>%
   summarize(value = sum(value*POP, na.rm = T)/sum(POP, na.rm = T))
 
+CAL_hist_base <- filter(CAL_hist_SA, year == 2000) %>%
+  dplyr::rename(Base2000 = value) %>%
+  ungroup() %>%
+  select(-year)
+
+
 # Simulation
 CAL <- filter(Pivot, ind1 == "pckal") %>%
   filter(scen %in% target_scen) %>%
-  droplevels()
+  droplevels() %>%
+  group_by(iso3c, scenName) %>%
+  mutate(index = value/value[year == 2000])
+
+# Rebase simulations 2000 to historical data (2000=100)
+CAL <- CAL %>%
+  left_join(., CAL_hist_base) %>%
+  mutate(value = Base2000*index)
 
 # Figures by region
 # Total range of scenarios
@@ -339,7 +355,7 @@ range_tot <- bind_rows(
 #  baseline
 key_scen <- CAL %>%
     filter(GCM == "NoCC")
-  
+
 # Figures by region
 Fig_CAL = ggplot() +
   geom_line(data = CAL_hist_SA, aes(x = year, y = value), colour = "black", size = 1) +

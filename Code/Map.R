@@ -19,7 +19,7 @@ p_load("WDI", "countrycode", "gdxrrw")
 root <- find_root(is_rstudio_project)
 
 auxPath <- "C:\\Users\\vandijkm\\GLOBIOM\\Auxiliary"
-dataPath <- "P:\\globiom\\Projects\\Water" 
+dataPath <- "P:\\globiom\\Projects\\Water\\CCAFS_SouthAsia" 
 
 ### R SETTINGS
 options(scipen=999) # surpress scientific notation
@@ -40,13 +40,13 @@ SA_adm0_fo <- fortify(SA_adm0)
 ### PREPARE GLOBIOM MAP DATA
 # Obtain GLOBIOM SIMU raster and link file
 # CHECK FILE, more adf files
-SIMU_map <- raster(file.path(dataPath, "CCAFS_SouthAsia/Data/simu_raster\\sta.adf"))
+SIMU_map <- raster(file.path(dataPath, "Data/simu_raster\\sta.adf"))
 
 # projection seems the same but we harmonise to be sure
 SA_adm <- spTransform(SA_adm0, CRS(proj4string(SIMU_map)))
 
 # Read link variable
-SimUIDLUID_map <- read_csv(file.path(dataPath, "CCAFS_SouthAsia/Data/simu_raster\\SimUIDLUID_map.csv"))
+SimUIDLUID_map <- read_csv(file.path(dataPath, "Data/simu_raster\\SimUIDLUID_map.csv"))
 
 # Cut out Asia
 SIMU_SA <- crop(SIMU_map, SA_adm0, updateNA=TRUE)
@@ -67,9 +67,9 @@ SIMU_SA_df <- raster2df_f(SIMU_SA) %>%
 
 
 ### GLOBIOM DATA PREPARATION
-# Functon to load gdx files
+# Function to load gdx files
 gdx_load_f <- function(file, Symbol, names = NULL){
-  file2 <- file.path(dataPath, paste0("CCAFS_SouthAsia\\Data\\GLOBIOM\\", file))
+  file2 <- file.path(dataPath, paste0("Data\\GLOBIOM\\AprilRuns\\", file))
   print(file)
   df <- rgdx.param(file2, Symbol, names, compress = T)
   df$fileName <- file
@@ -77,19 +77,21 @@ gdx_load_f <- function(file, Symbol, names = NULL){
 }
 
 # Read scenario definitions and add file name
-scenDef <- read_excel(file.path(dataPath, "CCAFS_SouthAsia\\Data\\GLOBIOM\\scen_definitions.xlsx")) %>%
-  mutate(fileName = paste0("output_SSPs_CCAFS_CC-", GDX_name, ".gdx"),
-         scenName = trimws(scenName),
-         climate_CC = trimws(climate_CC)) %>%
+scenDef <- read_excel(file.path(dataPath, "Data\\GLOBIOM\\scen_definitions.xlsx")) %>%
+  mutate(
+    #fileName = paste0("output_SSPs_CCAFS_CC-", GDX_name, ".gdx"),
+    fileName = paste0("output_SSPs_CCAFS_CC1_gw_dem_eff-", GDX_name, ".gdx"),
+    scenName = trimws(scenName),
+    climate_CC = trimws(climate_CC)) %>%
   dplyr::select(-SSP)
 
 # Read gdx files
-files <- list.files(file.path(dataPath, "CCAFS_SouthAsia\\Data\\GLOBIOM\\"), pattern = "output_SSPs_CCAFS_C")
+files <- list.files(file.path(dataPath, "Data\\GLOBIOM\\AprilRuns"), pattern = "output_SSPs_CCAFS_C")
 
 ### GRIDDED AREA DATA
-# # Load gridded area data per scenario
-# # Baseline scenarios are NoCC of NewUSA, Jugaad, PeoplePower, Precipice
-# # Corresponding with GDX files # 0,1,3,4.gdx (see scenDef)
+# Load gridded area data per scenario
+# Baseline scenarios are NoCC of NewUSA, Jugaad, PeoplePower, Precipice
+# Corresponding with GDX files # 0,1,3,4.gdx (see scenDef)
 # colnames <- c("region","LUId","altClass", "slpClass","soilClass", "AEZClass", "crop", "areaProd", "scen", "allBioenScen", "scenName", "year", "value", "filename")
 # 
 # # 2000 map
