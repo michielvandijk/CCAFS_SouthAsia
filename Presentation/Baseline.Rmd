@@ -6,24 +6,31 @@ output: beamer_presentation
 ---
 
 ```{r setup, include=FALSE, results='hide', message=FALSE, warning=FALSE}
-library(knitr)
-knitr::opts_chunk$set(echo = TRUE)
+library(pacman)
+p_load(rprojroot)
+root <- find_root(is_rstudio_project)
 
-library(pander)
+p_load(knitr)
+knitr::opts_chunk$set(
+  fig.width=12, fig.height=8,
+  dpi = 300,
+  echo=FALSE, warning=FALSE, message=FALSE,
+  fig.path = file.path(root,"Fig_tab_map/out-"),
+  dev = "CairoPNG",
+  dev.args = list(CairoPNG = list(bg = "transparent"))
+  )
+
+p_load(pander)
 panderOptions('table.alignment.default', function(df)
     ifelse(sapply(df, is.numeric), 'right', 'left'))
 panderOptions('table.split.table', Inf)
 panderOptions('big.mark', ",")
 panderOptions('keep.trailing.zeros', TRUE)
 
-library(rprojroot)
-root <- find_root(is_rstudio_project)
-knitr::opts_chunk$set(echo = FALSE, fig.height = 10, fig.width = 10)
-
 #source(file.path(root ,"Code/r_code/Tbl_countrysum.R"))
 Tbl_WDI <- read.csv(file.path(root, "Data/Tbl_WDI.csv"))
-source(file.path(root ,"Code/r_code/Fig.R"))
-source(file.path(root ,"Code/r_code/Map.R"))
+source(file.path(root ,"Code/Fig.R"))
+source(file.path(root ,"Code/Map.R"))
 ```
 
 
@@ -44,7 +51,7 @@ __Target journal__: Regional Environmental Change (PIC)?
 Vinke et al. (2016), _Climatic risks and impacts in South Asia: extremes of water scarcity and excess_, Regional Environmental Change
 
 ```{r Fig_Vinke}
-knitr::include_graphics("P:\\globiom\\Projects\\Water\\Figure\\Figure1_Vinke_2016.gif")
+knitr::include_graphics("P:\\globiom\\Projects\\Water\\CCAFS_SouthAsia\\FigTblMap\\Figure1_Vinke_2016.gif")
 #knitr::include_graphics(file.path(root, "FigTab/Yield_Gap_Framework.png")) Does not work for some reason..
 ```
  
@@ -84,13 +91,15 @@ kable(Tbl_WDI, digits = 0)
 ```{r Fig_GDPPOP, message=FALSE, warning=FALSE}
 #Fig_GDPPOP
 ```
+
 ## Water Demand by Sector and Source 
 ```{r water_dem_sect_source}
-knitr::include_graphics("P:\\globiom\\Projects\\Water\\CCAFS_SouthAsia\\Graphs\\water_dem_sect_source.gif")
+#knitr::include_graphics("P:\\globiom\\Projects\\Water\\CCAFS_SouthAsia\\CCAFS_SouthAsia\\FigTblMap\\water_dem_sect_source.gif")
 ```
+
 ## Calories
 ```{r Fig_kcal, message=FALSE, warning=FALSE}
-#Fig_kcal
+Fig_CAL
 ```
 
 ## Rice prices
@@ -100,7 +109,7 @@ knitr::include_graphics("P:\\globiom\\Projects\\Water\\CCAFS_SouthAsia\\Graphs\\
 
 ## Irrigated area
 ```{r Map_IRRsh, message=FALSE, warning=FALSE}
-Map_IRRsh
+Map_IRRsh_ch
 ```
 
 ## Discussion points
